@@ -48,7 +48,12 @@ const paginaRest = (codes, maxId, mais) => ({
 });
 
 /** Uma captura de feed do Instagram, como a rolagem faria surgir. */
-const capturaIG = (codes, mais) => ({ json: paginaRest(codes, mais ? "M" : null, mais) });
+const capturaIG = (codes, mais, dono = "777") => ({
+  json: {
+    ...paginaRest(codes, mais ? "M" : null, mais),
+    items: paginaRest(codes, null, false).items.map((i) => ({ ...i, user: { pk: dono } })),
+  },
+});
 
 const semEspera = () => Promise.resolve();
 
@@ -355,7 +360,7 @@ describe("identificação do perfil sem gastar requisição", () => {
     const executor = executorFalso({
       capturaInstalada: true,
       // O app já buscou o primeiro feed sozinho quando a página abriu.
-      drenarCapturas: [{ json: paginaRest(["ja1", "ja2"], null, false) }],
+      drenarCapturas: [capturaIG(["ja1", "ja2"], false, "777")],
       lerPerfilDaPagina: { ok: true, userId: "777" },
       buscarJson: { ok: true, status: 200, json: paginaRest(["novo"], null, false) },
     });
@@ -748,6 +753,80 @@ describe("destaque", () => {
         urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
       }),
     ).rejects.toThrow(/não tem nada/i);
+  });
+});
+
+describe("captura de outro perfil", () => {
+  it("descarta o que ficou no buffer de um perfil visitado antes", async () => {
+    // O buffer vive na página e sobrevive à troca de perfil. Aproveitar essas
+    // capturas salvava publicações alheias sob a chave deste perfil.
+    const repo = repoFalso();
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 1 },
+      lerPerfilDaPagina: { ok: true, userId: "777" },
+      drenarCapturas: [capturaIG(["alheia1", "alheia2"], false, "OUTRO")],
+      buscarJson: { ok: true, status: 200, json: paginaRest(["minha"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
+      mostrarAviso: true,
+      esconderAviso: true,
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(repo.posts.todos().map((p) => p.id)).toEqual(["minha"]);
+  });
+
+  it("avisa quantas descartou, em vez de sumir com elas em silêncio", async () => {
+    const repo = repoFalso();
+    const avisos = [];
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 1 },
+      lerPerfilDaPagina: { ok: true, userId: "777" },
+      drenarCapturas: [capturaIG(["x"], false, "OUTRO")],
+      buscarJson: { ok: true, status: 200, json: paginaRest(["minha"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
+      mostrarAviso: true,
+      esconderAviso: true,
+    });
+
+    const coletor = criarColetor({
+      executor, repo, esperar: semEspera,
+      aoProgresso: (e) => { if (e.aviso) avisos.push(e.aviso); },
+    });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(avisos.join(" ")).toMatch(/não eram deste perfil/i);
+  });
+
+  it("a numeração começa em 1, sem herdar sequência de coleta anterior", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 2 },
+      lerPerfilDaPagina: { ok: true, userId: "777" },
+      drenarCapturas: [capturaIG(["alheia"], false, "OUTRO")],
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a", "b"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
+      mostrarAviso: true,
+      esconderAviso: true,
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(repo.posts.todos().map((p) => p.seq)).toEqual([1, 2]);
   });
 });
 

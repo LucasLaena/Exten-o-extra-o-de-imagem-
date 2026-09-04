@@ -54,6 +54,11 @@ export async function abrirAcervo(idb = globalThis.indexedDB, Range = globalThis
     fechar: () => db.close(),
 
     perfis: {
+      async limparTudo() {
+        const store = escrita("profiles");
+        store.clear();
+        await fim(store.transaction);
+      },
       /**
        * Mescla, não substitui. Dois escritores independentes gravam neste
        * registro: o service worker guarda a assinatura do feed, o indexador
@@ -93,6 +98,18 @@ export async function abrirAcervo(idb = globalThis.indexedDB, Range = globalThis
             .openCursor(faixaDoPerfil(Range, profileKey), "prev"),
         );
         return cursor ? cursor.value.seq : 0;
+      },
+      /**
+       * Apaga TODO o catálogo, de todos os perfis.
+       *
+       * O catálogo é de sessão: ele existe para escolher e baixar, e some
+       * quando a aba fecha. Guardá-lo entre sessões produzia dados velhos que
+       * se misturavam com a coleta nova.
+       */
+      async limparTudo() {
+        const store = escrita("posts");
+        store.clear();
+        await fim(store.transaction);
       },
       async limpar(profileKey) {
         const store = escrita("posts");

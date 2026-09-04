@@ -133,6 +133,17 @@ describe("posts", () => {
   it("aceita lote vazio sem reclamar", async () => {
     await expect(repo.posts.salvarLote([])).resolves.toBeUndefined();
   });
+
+  it("limparTudo apaga o catálogo inteiro, de todos os perfis", async () => {
+    // O catálogo é de sessão: some quando a aba fecha.
+    await repo.posts.salvarLote([
+      criarPost({ id: "A", perfil: "um" }),
+      criarPost({ id: "B", perfil: "dois" }),
+    ]);
+    await repo.posts.limparTudo();
+    expect(await repo.posts.contar("ig:@um")).toBe(0);
+    expect(await repo.posts.contar("ig:@dois")).toBe(0);
+  });
 });
 
 describe("baixados", () => {

@@ -43,14 +43,28 @@ function selecaoAtual(baixados) {
   });
 }
 
+const ROTULO_TIPO = { foto: "Foto", video: "Vídeo", carrossel: "Carrossel" };
+
+/** O que a publicação é, em uma linha: tipo e, no carrossel, quantas páginas. */
+function descreverTipo(post) {
+  const base = ROTULO_TIPO[post.tipo] ?? post.tipo;
+  if (post.tipo !== "carrossel") return base;
+  return `${base} · ${post.midias.length}`;
+}
+
 function renderizarItem(item, el) {
   const { post } = item;
   el.classList.toggle("baixado", item.jaBaixado);
+  el.dataset.tipo = post.tipo;
 
   const img = document.createElement("img");
   img.loading = "lazy";
   img.src = post.capaUrl;
   img.alt = "";
+
+  const selo = document.createElement("span");
+  selo.className = "selo";
+  selo.textContent = descreverTipo(post);
 
   const posicao = document.createElement("span");
   posicao.className = "posicao";
@@ -65,7 +79,7 @@ function renderizarItem(item, el) {
   seq.className = "seq";
   seq.textContent = `seq ${post.seq}`;
 
-  el.append(img, posicao, metricas, seq);
+  el.append(img, selo, posicao, metricas, seq);
 }
 
 /** Uma grade vazia sem explicação é o pior estado possível. */
@@ -220,8 +234,8 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // Indexar substitui, nao soma. Somar em cima do que ja existia misturava
     // coletas de filtros diferentes e a lista so crescia, sem nunca refletir
     // o que foi pedido agora.
-    dizer("Limpando o catálogo anterior deste perfil…");
-    await repo.posts.limpar(alvo.profileKey);
+    dizer("Limpando o catálogo anterior…");
+    await repo.posts.limparTudo();
     await repo.perfis.salvar({
       key: alvo.profileKey,
       cursor: null,
@@ -517,6 +531,12 @@ async function iniciar() {
 
   repo = await abrirBanco();
   executor = criarExecutor(chrome);
+
+  // O catálogo é de sessão: existe para escolher e baixar, e some quando a
+  // aba fecha. Guardá-lo entre sessões trazia de volta dados velhos que se
+  // misturavam com a coleta nova — inclusive de outros perfis.
+  await repo.posts.limparTudo();
+  await repo.perfis.limparTudo();
 
   grade = criarGrade({
     container: $("grade"),

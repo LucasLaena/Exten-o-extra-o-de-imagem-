@@ -358,6 +358,25 @@ button:focus-visible {
   background: var(--osso);
 }
 
+/* O selo diz o que a publicação é sem obrigar a abrir o CSV mental: cor
+   diferente por tipo, e no carrossel o número de páginas. */
+.item .selo {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(28, 48, 56, .82);
+  color: var(--osso);
+  font: var(--numeros);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.item[data-tipo="carrossel"] .selo { background: rgba(47, 107, 94, .92); }
+.item[data-tipo="video"] .selo { background: rgba(181, 69, 27, .88); }
+
 .item .posicao {
   font: var(--numeros);
   font-weight: 700;

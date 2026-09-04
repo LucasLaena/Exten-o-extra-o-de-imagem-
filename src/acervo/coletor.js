@@ -119,13 +119,27 @@ export function criarColetor({
 
   /** Instagram: pagina direto pelo endpoint de feed, de dentro da aba. */
   async function coletarInstagram({ abaId, adaptador, handle, profileKey, estado, teto, sinal }) {
-    // O que a página já carregou entra sem custo nenhum de rede — e é dele
-    // que sai o id do dono, a fonte mais confiável que existe para esse dado.
+    // O id do perfil vem PRIMEIRO, lido da página aberta agora. Sem ele não há
+    // como saber se uma captura pertence a este perfil ou a outro visitado
+    // antes: o buffer vive na página e sobrevive à troca de perfil.
+    const daPagina = await executor.rodar(abaId, lerPerfilDaPagina, [handle]);
+    const idEsperado = daPagina?.ok ? daPagina.userId : null;
+
     const jaCarregado = (await executor.rodar(abaId, drenarCapturas)) ?? [];
     let idDasCapturas = null;
+    let descartadas = 0;
 
     for (const captura of jaCarregado) {
-      idDasCapturas ??= adaptador.idDoDono?.(captura.json) ?? null;
+      const dono = adaptador.idDoDono?.(captura.json) ?? null;
+
+      // Captura de outro perfil é lixo perigoso: aproveitá-la aqui misturaria
+      // publicações alheias no catálogo deste perfil. Na dúvida, descarta.
+      if (!dono || (idEsperado && dono !== idEsperado)) {
+        descartadas++;
+        continue;
+      }
+
+      idDasCapturas ??= dono;
       const pagina = adaptador.parsear(captura.json);
       const novos = preparar(pagina.itens, estado, profileKey);
       if (novos.length > 0) {
@@ -134,9 +148,22 @@ export function criarColetor({
       }
     }
 
+    if (descartadas > 0) {
+      aoProgresso?.({
+        indexados: estado.indexados,
+        paginas: estado.paginas,
+        aviso: `Descartei ${descartadas} respostas que não eram deste perfil.`,
+      });
+    }
+
     let perfil;
     try {
-      perfil = await identificarPerfil(abaId, handle, idDasCapturas, estado.indexados);
+      perfil = await identificarPerfil(
+        abaId,
+        handle,
+        idEsperado ?? idDasCapturas,
+        estado.indexados,
+      );
     } catch (erro) {
       // Sem id não dá para paginar pela API, mas dá para rolar a página.
       estado.recuouParaRolagem = true;
