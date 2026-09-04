@@ -182,7 +182,19 @@ Chave: `"ig:@perfil#C4xY9k"`.
 `[profileKey+timestamp]`, `[profileKey+tipo]`.
 
 `seq` é a posição do post **na ordem em que a plataforma o entregou** durante a
-indexação, começando em 1. É o número que o usuário digita no campo de faixa.
+indexação, começando em 1. É a ordem "sequência do perfil" e viaja com o post
+como metadado.
+
+**O número que o usuário digita no campo de faixa é a posição, não o `seq`.**
+A faixa é aplicada sobre a lista **já filtrada e já ordenada**. Pedir "500 a
+1000" ordenando por views significa "do 500º ao 1000º mais visto", e pedir a
+mesma faixa ordenando por sequência do perfil significa `seq` 500 a 1000, já
+que nesse caso posição e `seq` coincidem. É essa distinção que torna útil
+ordenar por relevância: "1 a 100" ordenado por views é o top 100 do perfil.
+
+A grade mostra os dois números: a posição atual em destaque e o `seq` do perfil
+como metadado, para que o usuário nunca fique em dúvida sobre o que está
+pedindo.
 
 Três consequências que precisam estar explícitas:
 
