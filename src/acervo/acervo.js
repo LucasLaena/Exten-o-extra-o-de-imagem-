@@ -252,6 +252,12 @@ async function baixar() {
 }
 
 async function iniciar() {
+  // Recarregar a extensão não recarrega uma aba chrome-extension:// já aberta.
+  // Mostrar a versão torna óbvio quando esta aba está rodando código velho.
+  const versao = chrome.runtime.getManifest().version;
+  $("versao").textContent = "v" + versao;
+  console.log("[Acervo] aba v" + versao);
+
   repo = await abrirBanco();
 
   if (!profileKey) {

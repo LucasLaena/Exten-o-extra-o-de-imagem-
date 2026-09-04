@@ -8,7 +8,7 @@
   try {
     const { iniciar } = await import(chrome.runtime.getURL("src/content/app.js"));
     iniciar();
-    console.log("[Acervo] ativo em", location.href);
+    console.log("[Acervo] v" + chrome.runtime.getManifest().version + " ativo em", location.href);
   } catch (erro) {
     console.error("[Acervo] falhei ao iniciar:", erro);
   }

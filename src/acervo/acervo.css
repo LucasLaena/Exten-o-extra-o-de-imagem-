@@ -48,6 +48,14 @@ h1 {
   letter-spacing: -.01em;
 }
 
+.versao {
+  font: var(--numeros);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--grafite);
+  vertical-align: middle;
+}
+
 .perfil {
   margin: 3px 0 0;
   font: var(--numeros);
