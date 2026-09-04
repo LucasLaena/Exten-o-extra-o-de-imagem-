@@ -8,6 +8,8 @@ import {
   sondarInstagram,
   rolarUmPouco,
   drenarCapturas,
+  mostrarAviso,
+  esconderAviso,
 } from "./sondas.js";
 
 export const ESPERA_MIN_MS = 800;
@@ -240,6 +242,7 @@ export function criarColetor({
     // Sem foco o Instagram não carrega mais nada: o IntersectionObserver que
     // dispara a paginação infinita não roda em aba de segundo plano.
     const abaAnterior = await executor.ativar?.(abaId);
+    await executor.rodar(abaId, mostrarAviso, ["Acervo · buscando publicações"]);
     aoProgresso?.({
       indexados: estado.indexados,
       paginas: estado.paginas,
@@ -293,6 +296,14 @@ export function criarColetor({
         limite: rolagensSemNovidade,
       });
 
+      await executor
+        .rodar(abaId, mostrarAviso, [
+          `Acervo · ${estado.indexados}` +
+            (estado.totalDeclarado ? ` de ${estado.totalDeclarado}` : "") +
+            " publicações",
+        ])
+        .catch(() => {});
+
       if (acabou) {
         estado.completo = true;
         break;
@@ -301,6 +312,9 @@ export function criarColetor({
     }
 
     } finally {
+      // A moldura sai sempre: deixá-la na tela depois de terminar seria pior
+      // que nunca tê-la mostrado.
+      await executor.rodar(abaId, esconderAviso).catch(() => {});
       await executor.restaurar?.(abaAnterior);
     }
 

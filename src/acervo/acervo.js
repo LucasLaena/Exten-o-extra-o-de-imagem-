@@ -37,7 +37,7 @@ function selecaoAtual(baixados) {
     de: Number($("de").value) || 1,
     ate: Number($("ate").value) || 1,
     manuais: marcadas,
-    pularBaixados: $("pularBaixados").checked,
+    pularBaixados: false,
     baixados,
   });
 }
@@ -216,13 +216,27 @@ async function indexar({ eDepoisBaixar = false } = {}) {
   });
 
   try {
+    // Indexar substitui, nao soma. Somar em cima do que ja existia misturava
+    // coletas de filtros diferentes e a lista so crescia, sem nunca refletir
+    // o que foi pedido agora.
+    dizer("Limpando o catálogo anterior deste perfil…");
+    await repo.posts.limpar(alvo.profileKey);
+    await repo.perfis.salvar({
+      key: alvo.profileKey,
+      cursor: null,
+      completo: false,
+      totalIndexado: 0,
+    });
+    posts = [];
+    await redesenhar();
+
     dizer("Abrindo a aba do perfil…");
     const r = await coletor.coletar({
       adaptador: alvo.adaptador,
       handle: alvo.handle,
       profileKey: alvo.profileKey,
       urlDoPerfil: alvo.urlDoPerfil,
-      seqInicial: await repo.posts.maiorSeq(alvo.profileKey),
+      seqInicial: 0,
       teto: tetoDaIndexacao(pedidoDeEscopo()),
       sinal: controle.signal,
     });
@@ -306,17 +320,14 @@ async function baixar() {
   }
 
   const baixados = await repo.baixados.chavesDoPerfil(alvo.profileKey);
-  const { selecionados, posicoes, total, pulados } = selecaoAtual(baixados);
+  const { selecionados, posicoes, total } = selecaoAtual(baixados);
 
   if (selecionados.length === 0) {
     dizer(
       total === 0
         ? "O catálogo está vazio: não há o que baixar."
-        : pulados > 0
-          ? `As ${numero(pulados)} publicações da faixa já foram baixadas antes. ` +
-            "Desmarque \"Pular já baixados\" para baixar de novo."
-          : `A faixa pedida não bate com o catálogo: há ${numero(total)} publicações ` +
-            "depois do filtro de mídia. Ajuste a faixa ou o tipo de mídia.",
+        : `A faixa pedida não bate com o catálogo: há ${numero(total)} publicações ` +
+          "depois do filtro de mídia. Ajuste a faixa ou o tipo de mídia.",
     );
     return;
   }
@@ -433,7 +444,6 @@ function aplicarPedido(bruto) {
   definir("ate", pedido.ate);
   definir("escopo", pedido.escopo);
   definir("incluirCapaReel", pedido.incluirCapaReel);
-  definir("pularBaixados", pedido.pularBaixados);
 
   return pedido;
 }
@@ -473,7 +483,7 @@ async function iniciar() {
     await redesenhar();
   }
 
-  for (const id of ["filtro", "ordenacao", "de", "ate", "pularBaixados", "escopo"]) {
+  for (const id of ["filtro", "ordenacao", "de", "ate", "escopo"]) {
     $(id).addEventListener("change", redesenhar);
   }
   for (const id of ["de", "ate"]) {

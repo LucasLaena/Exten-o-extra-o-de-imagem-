@@ -170,6 +170,75 @@ export async function sondarFeed(userId, appId, quantas) {
   }
 }
 
+export const ID_AVISO = "__acervo_aviso__";
+
+/**
+ * Mostra na página do perfil que a extensão está trabalhando.
+ *
+ * Sem isto a página começa a rolar sozinha e a pessoa não sabe se travou, se
+ * é vírus ou se é o programa. A moldura não intercepta clique: ela avisa, não
+ * atrapalha.
+ */
+export function mostrarAviso(texto) {
+  const anterior = document.getElementById(ID_AVISO);
+  if (anterior) {
+    const rotulo = anterior.querySelector("[data-texto]");
+    if (rotulo) rotulo.textContent = texto;
+    return true;
+  }
+
+  const caixa = document.createElement("div");
+  caixa.id = ID_AVISO;
+  caixa.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "z-index:2147483000",
+    "pointer-events:none",
+    "border:3px solid #2F6B5E",
+    "box-shadow:inset 0 0 0 1px rgba(242,239,230,.6), inset 0 0 60px rgba(47,107,94,.28)",
+  ].join(";");
+
+  const pilula = document.createElement("div");
+  pilula.style.cssText = [
+    "position:absolute",
+    "left:50%",
+    "top:18px",
+    "transform:translateX(-50%)",
+    "display:flex",
+    "align-items:center",
+    "gap:9px",
+    "padding:9px 16px",
+    "border-radius:999px",
+    "background:#1C3038",
+    "color:#F2EFE6",
+    "font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+    "box-shadow:0 6px 20px rgba(28,48,56,.4)",
+  ].join(";");
+
+  const ponto = document.createElement("span");
+  ponto.style.cssText =
+    "width:8px;height:8px;border-radius:50%;background:#2F6B5E;box-shadow:0 0 0 3px rgba(47,107,94,.35)";
+
+  const rotulo = document.createElement("span");
+  rotulo.dataset.texto = "1";
+  rotulo.textContent = texto;
+
+  const nota = document.createElement("span");
+  nota.textContent = "não feche esta aba";
+  nota.style.cssText = "opacity:.7;font-weight:400";
+
+  pilula.append(ponto, rotulo, nota);
+  caixa.append(pilula);
+  document.body.appendChild(caixa);
+  return true;
+}
+
+/** Tira a moldura. Chamado sempre, inclusive quando a coleta falha. */
+export function esconderAviso() {
+  document.getElementById(ID_AVISO)?.remove();
+  return true;
+}
+
 /** Rola até o fim para o app buscar a próxima página. Devolve a altura nova. */
 export function rolarAteOFim() {
   const altura = Math.max(

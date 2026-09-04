@@ -118,6 +118,8 @@ describe("Instagram", () => {
       lerPerfilDaPagina: { ok: false },
       sondarInstagram: { ok: false, status: 404 },
       rolarUmPouco: { alturaDepois: 1 },
+      mostrarAviso: true,
+      esconderAviso: true,
       drenarCapturas: () => {
         vez++;
         // A primeira drenagem é a do início da coleta, antes de identificar.
@@ -559,6 +561,8 @@ describe("contador e rolagem de fechamento", () => {
       drenarCapturas: [],
       // Sem post novo, mas a página não para de crescer: ainda está carregando.
       rolarUmPouco: () => ({ alturaDepois: (altura += 500) }),
+      mostrarAviso: true,
+      esconderAviso: true,
     });
 
     const coletor = criarColetor({

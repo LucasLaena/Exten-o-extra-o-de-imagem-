@@ -38,7 +38,7 @@ describe("estadoInicial", () => {
   it("começa com os padrões da spec", () => {
     expect(estadoInicial()).toEqual({
       filtro: "ambos", incluirCapaReel: false, modo: "faixa",
-      de: 1, ate: 100, ordenacao: "sequencia", pularBaixados: true,
+      de: 1, ate: 100, ordenacao: "sequencia", pularBaixados: false,
     });
   });
 });

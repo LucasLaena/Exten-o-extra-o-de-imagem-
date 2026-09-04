@@ -25,7 +25,7 @@ export function estadoInicial() {
     de: 1,
     ate: 100,
     ordenacao: "sequencia",
-    pularBaixados: true,
+    pularBaixados: false,
   };
 }
 
@@ -180,10 +180,6 @@ export async function abrirModal({
         <label class="linha">
           <input type="checkbox" name="incluirCapaReel" />
           <span>Incluir a capa junto com cada vídeo</span>
-        </label>
-        <label class="linha">
-          <input type="checkbox" name="pularBaixados" checked />
-          <span>Pular o que já foi baixado</span>
         </label>
       </section>
 
