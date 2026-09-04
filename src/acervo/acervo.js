@@ -321,7 +321,19 @@ async function baixar() {
     return;
   }
 
-  dizer(`Baixando ${numero(selecionados.length)} publicações…`);
+  const arquivosPrevistos = selecionados.reduce(
+    (soma, post) =>
+      soma +
+      alvo.adaptador.midiasParaBaixar(post, {
+        filtro: $("filtro").value,
+        incluirCapaReel: $("incluirCapaReel").checked,
+      }).length,
+    0,
+  );
+  dizer(
+    `Baixando ${numero(selecionados.length)} publicações ` +
+    `(${numero(arquivosPrevistos)} arquivos)…`,
+  );
 
   const carimbo = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "");
   const segmentos = ["Acervo", alvo.adaptador.id, `@${alvo.handle}`, carimbo];
@@ -379,7 +391,8 @@ async function baixar() {
       sinal: controle.signal,
     });
     dizer(
-      `Pronto: ${r.partes.length} partes, ${numero(r.arquivos)} arquivos` +
+      `Pronto: ${numero(selecionados.length)} publicações em ${numero(r.arquivos)} arquivos, ` +
+      `${r.partes.length} ${r.partes.length === 1 ? "parte" : "partes"}` +
       (r.falhas.length ? `, ${r.falhas.length} falhas (veja relatorio.json)` : "") + ".",
     );
   } catch (erro) {

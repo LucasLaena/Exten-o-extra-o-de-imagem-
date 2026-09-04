@@ -8,6 +8,7 @@ import {
 import { pipelineOrdenado } from "../core/queue.js";
 import { escreverZip } from "../core/zipper.js";
 import { csvDoAcervo, relatorioJson } from "../core/csv.js";
+import { pastaDoArquivo, caminhoNoZip } from "../core/pastas.js";
 
 export const CONCORRENCIA_PADRAO = 4;
 
@@ -20,16 +21,32 @@ export function criarBaixador({
 }) {
   /** Expande os posts de uma parte na lista de arquivos a baixar, já batizados. */
   function planejarParte(parte, { posicoes, opcoes, perfil, template, largura }) {
-    const resolverColisao = criarResolvedorDeColisao();
+    // Um resolvedor por pasta: dois arquivos de mesmo nome em pastas
+    // diferentes não colidem, e numerar como se colidissem seria confuso.
+    const resolvedores = new Map();
     const entradas = [];
 
     for (const post of parte.posts) {
       const posicao = posicoes.get(post.key);
+
       for (const { midia, ehCapa } of adaptador.midiasParaBaixar(post, opcoes)) {
-        const nome = resolverColisao(
+        const pasta = pastaDoArquivo({ post, midia, ehCapa, posicao, largura });
+
+        if (!resolvedores.has(pasta)) resolvedores.set(pasta, criarResolvedorDeColisao());
+        const nome = resolvedores.get(pasta)(
           montarNome({ post, midia, posicao, perfil, largura, template, ehCapa }),
         );
-        entradas.push({ postKey: post.key, post, midia, ehCapa, nome, posicao });
+
+        entradas.push({
+          postKey: post.key,
+          post,
+          midia,
+          ehCapa,
+          nome,
+          pasta,
+          caminho: caminhoNoZip(pasta, nome),
+          posicao,
+        });
       }
     }
     return entradas;
@@ -56,11 +73,11 @@ export function criarBaixador({
         continue;
       }
 
-      estado.arquivosPorPost.get(entrada.postKey).push(entrada.nome);
+      estado.arquivosPorPost.get(entrada.postKey).push(entrada.caminho);
       estado.arquivos++;
-      aoProgresso?.({ tipo: "arquivo", nome: entrada.nome, arquivos: estado.arquivos });
+      aoProgresso?.({ tipo: "arquivo", nome: entrada.caminho, arquivos: estado.arquivos });
 
-      yield { nome: entrada.nome, entrada: resultado.valor };
+      yield { nome: entrada.caminho, entrada: resultado.valor };
     }
   }
 
