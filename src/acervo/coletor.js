@@ -25,10 +25,14 @@ export const POR_PAGINA = 50;
 /** Quantas vezes insistir numa pagina antes de desistir da API. */
 export const TENTATIVAS_POR_PAGINA = 3;
 
-/** Erro com texto pronto para a tela. */
+/** Erro com texto pronto para a tela, carimbado com a versão que o produziu. */
 export class ErroDeColeta extends Error {
   constructor(mensagem) {
-    super(mensagem);
+    let v = "?";
+    try {
+      v = chrome.runtime.getManifest().version;
+    } catch {}
+    super(`[v${v}] ${mensagem}`);
     this.name = "ErroDeColeta";
   }
 }

@@ -6,7 +6,11 @@ import { dormir } from "../core/queue.js";
  */
 export class ErroDeAba extends Error {
   constructor(mensagem, causa) {
-    super(mensagem);
+    let v = "?";
+    try {
+      v = chrome.runtime.getManifest().version;
+    } catch {}
+    super(`[v${v}] ${mensagem}`);
     this.name = "ErroDeAba";
     this.causa = causa;
   }

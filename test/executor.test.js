@@ -51,6 +51,8 @@ describe("rodar", () => {
 
     await expect(ex.rodar(9, () => {})).rejects.toBeInstanceOf(ErroDeAba);
     await expect(ex.rodar(9, () => {})).rejects.toThrow(/aba do perfil/i);
+    // O prefixo carimba a versão, para erro antigo não se passar por novo.
+    await expect(ex.rodar(9, () => {})).rejects.toThrow(/^\[v/);
   });
 
   it("explica quando a aba sumiu", async () => {

@@ -54,6 +54,9 @@ function buscarFalso(respostas) {
 
 const semEspera = () => Promise.resolve();
 
+// Sem chrome no teste, o carimbo de versão vira "?". As asserções olham o
+// miolo da mensagem, não o prefixo.
+
 const coletar = (buscar, repo, extra = {}) =>
   criarColetorDireto({ buscar, repo, esperar: semEspera, ...extra }).coletar({
     adaptador: instagram,

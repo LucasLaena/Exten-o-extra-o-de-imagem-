@@ -10,10 +10,25 @@ export const ESPERA_MIN_MS = 700;
 export const ESPERA_MAX_MS = 1600;
 export const TENTATIVAS = 3;
 
+/**
+ * A versão que produziu esta mensagem.
+ *
+ * Sem o carimbo, um erro antigo no painel do chrome://extensions é
+ * indistinguível de um erro novo — e mais de uma vez isso custou uma rodada
+ * inteira de diagnóstico chutando causa errada.
+ */
+function versao() {
+  try {
+    return chrome.runtime.getManifest().version;
+  } catch {
+    return "?";
+  }
+}
+
 /** Falha da coleta direta, com texto pronto para a tela. */
 export class ErroDireto extends Error {
   constructor(mensagem, { recuperavel = true } = {}) {
-    super(mensagem);
+    super(`[v${versao()}] ${mensagem}`);
     this.name = "ErroDireto";
     // Recuperável significa: vale tentar o caminho da aba. Perfil privado ou
     // inexistente não é recuperável — abrir aba não muda nada.
