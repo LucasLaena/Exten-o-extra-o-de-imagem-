@@ -47,7 +47,7 @@ export function criarColetor({
   maxRolagens = MAX_ROLAGENS,
   passosPorRodada = PASSOS_POR_RODADA,
   pausaEntrePassos = PAUSA_ENTRE_PASSOS_MS,
-  rolarAntes = true,
+  rolarSeFaltar = true,
 }) {
   /** Acumula os posts de uma página, atribuindo seq e chave. Ignora repetidos. */
   function preparar(brutos, estado, profileKey) {
@@ -349,21 +349,29 @@ export function criarColetor({
       const argumentos = { abaId: aba.abaId, adaptador, handle, profileKey, estado, teto, sinal };
 
       if (adaptador.id === "instagram") {
-        // Rolar primeiro: e o que faz o proprio app carregar as publicacoes,
-        // sem depender de endpoint nenhum. A API entra depois, para ir mais
-        // fundo do que a rolagem alcanca em tempo razoavel.
-        if (rolarAntes) {
-          await coletarRolando(argumentos);
-          estado.completo = false;
-        }
-
+        // A API primeiro, sempre: ela traz 50 publicações por requisição.
+        // Um perfil de 2.000 sai em cerca de 40 requisições, contra dezenas
+        // de minutos de rolagem para o mesmo tanto.
         const r = await coletarInstagram(argumentos);
 
-        // A rolagem fecha o que a API não alcançou: ou porque recuou, ou
-        // porque o catálogo ainda está menor que o total que o perfil declara.
+        // A rolagem é o último recurso, não a rotina: só entra quando a API
+        // não deu conta, e avisa que vai demorar.
         const faltaGente =
           estado.totalDeclarado != null && estado.indexados < estado.totalDeclarado;
-        if (r?.recuar || !estado.completo || faltaGente) {
+
+        if (rolarSeFaltar && (r?.recuar || faltaGente)) {
+          const faltam = estado.totalDeclarado
+            ? Math.max(0, estado.totalDeclarado - estado.indexados)
+            : null;
+          aoProgresso?.({
+            indexados: estado.indexados,
+            paginas: estado.paginas,
+            total: estado.totalDeclarado,
+            aviso:
+              "A via rápida não deu conta. Continuando pela rolagem" +
+              (faltam ? `, faltam ~${faltam}` : "") +
+              " — isso é bem mais lento.",
+          });
           estado.completo = false;
           await coletarRolando(argumentos);
         }

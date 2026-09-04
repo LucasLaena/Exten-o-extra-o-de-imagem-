@@ -131,6 +131,45 @@ export async function sondarInstagram(handle, appId) {
   }
 }
 
+/**
+ * Chama o endpoint de feed uma vez e relata o que voltou.
+ *
+ * É este endpoint que faz a coleta ser rápida: 50 publicações por requisição,
+ * contra dezenas de segundos de rolagem para o mesmo tanto. Quando ele falha,
+ * a coleta cai para a rolagem — então saber exatamente o que ele responde é a
+ * diferença entre um minuto e meia hora.
+ */
+export async function sondarFeed(userId, appId, quantas) {
+  const url =
+    "https://www.instagram.com/api/v1/feed/user/" + userId + "/?count=" + quantas;
+  try {
+    const resposta = await fetch(url, {
+      credentials: "include",
+      headers: { "x-ig-app-id": appId, "x-requested-with": "XMLHttpRequest" },
+    });
+
+    const texto = await resposta.text();
+    let json = null;
+    try {
+      json = JSON.parse(texto);
+    } catch {}
+
+    if (!json) {
+      return { ok: false, status: resposta.status, erro: "resposta não era JSON" };
+    }
+    return {
+      ok: resposta.ok,
+      status: resposta.status,
+      itens: Array.isArray(json.items) ? json.items.length : 0,
+      temMais: Boolean(json.more_available),
+      temCursor: Boolean(json.next_max_id),
+      mensagem: json.message || null,
+    };
+  } catch (erro) {
+    return { ok: false, status: 0, erro: String(erro && erro.message ? erro.message : erro) };
+  }
+}
+
 /** Rola até o fim para o app buscar a próxima página. Devolve a altura nova. */
 export function rolarAteOFim() {
   const altura = Math.max(

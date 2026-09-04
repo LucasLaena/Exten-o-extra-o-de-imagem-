@@ -68,7 +68,7 @@ describe("Instagram", () => {
       },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: instagram,
       handle: "fulano",
@@ -98,7 +98,7 @@ describe("Instagram", () => {
       },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -126,7 +126,7 @@ describe("Instagram", () => {
         return [];
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
     const r = await coletor.coletar({
       adaptador: instagram, handle: "nao_existe", profileKey: "ig:@nao_existe",
@@ -146,7 +146,7 @@ describe("Instagram", () => {
       sondarInstagram: { ok: true, status: 200, userId: "1", privado: true, total: 0 },
       buscarJson: { ok: true, status: 200, json: paginaRest([], null, false) },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
     await expect(
       coletor.coletar({
@@ -171,7 +171,7 @@ describe("Instagram", () => {
         return [];
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
@@ -197,7 +197,7 @@ describe("Instagram", () => {
           : { ok: true, status: 200, json: paginaRest(["b"], null, false) };
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -228,7 +228,7 @@ describe("Instagram", () => {
         };
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/", teto: 5,
@@ -247,7 +247,7 @@ describe("Instagram", () => {
       // Cursor travado: o feed real faz isso quando algo dá errado do lado dele.
       buscarJson: { ok: true, status: 200, json: paginaRest(["a", "b"], "SEMPRE", true) },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -272,7 +272,7 @@ describe("Instagram", () => {
         return { ok: true, status: 200, json: paginaRest(["a"], "M", true) };
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/", sinal: ctrl.signal,
@@ -292,7 +292,7 @@ describe("identificação do perfil sem gastar requisição", () => {
       buscarJson: { ok: true, status: 200, json: paginaRest(["a"], null, false) },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -313,7 +313,7 @@ describe("identificação do perfil sem gastar requisição", () => {
       buscarJson: { ok: true, status: 200, json: paginaRest(["a"], null, false) },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -334,7 +334,7 @@ describe("identificação do perfil sem gastar requisição", () => {
     });
 
     const coletor = criarColetor({
-      executor, repo, esperar: semEspera, rolarAntes: false,
+      executor, repo, esperar: semEspera,
       aoProgresso: (e) => { if (e.aviso) avisos.push(e.aviso); },
     });
     const r = await coletor.coletar({
@@ -357,7 +357,7 @@ describe("identificação do perfil sem gastar requisição", () => {
       buscarJson: { ok: true, status: 200, json: paginaRest(["novo"], null, false) },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -395,7 +395,7 @@ describe("TikTok", () => {
       },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: tiktok, handle: "f", profileKey: "tt:@f",
       urlDoPerfil: "https://www.tiktok.com/@f",
@@ -418,7 +418,7 @@ describe("TikTok", () => {
         return [];
       },
     });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     const r = await coletor.coletar({
       adaptador: tiktok, handle: "f", profileKey: "tt:@f",
       urlDoPerfil: "https://www.tiktok.com/@f",
@@ -460,7 +460,7 @@ describe("contador e rolagem de fechamento", () => {
       rolarUmPouco: { alturaDepois: 1 },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 1, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 1 });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -486,7 +486,7 @@ describe("contador e rolagem de fechamento", () => {
     });
 
     const coletor = criarColetor({
-      executor, repo, esperar: semEspera, rolagensSemNovidade: 2, rolarAntes: false,
+      executor, repo, esperar: semEspera, rolagensSemNovidade: 2,
       aoProgresso: (e) => { if (e.rolando) vistos.push(e); },
     });
     await coletor.coletar({
@@ -518,7 +518,7 @@ describe("contador e rolagem de fechamento", () => {
       },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 2, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 2 });
     const r = await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -539,7 +539,7 @@ describe("contador e rolagem de fechamento", () => {
       rolarUmPouco: { alturaDepois: 1 },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -563,8 +563,7 @@ describe("contador e rolagem de fechamento", () => {
 
     const coletor = criarColetor({
       executor, repo, esperar: semEspera, rolagensSemNovidade: 3, maxRolagens: 10,
-      rolarAntes: false,
-    });
+          });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
@@ -577,81 +576,72 @@ describe("contador e rolagem de fechamento", () => {
   });
 });
 
-describe("rolagem antes de tudo", () => {
-  it("rola primeiro, sem depender de endpoint nenhum", async () => {
+describe("via rápida primeiro", () => {
+  it("usa a API antes de qualquer rolagem: é ordens de grandeza mais rápida", async () => {
     const repo = repoFalso();
-    let vez = 0;
     const executor = executorFalso({
       capturaInstalada: true,
       lerTotalDaPagina: { total: 2, fonte: "json" },
-      rolarUmPouco: { alturaDepois: 1 },
-      drenarCapturas: () => {
-        vez++;
-        // A rolagem inicial e quem traz as publicacoes.
-        return vez === 1 ? [capturaIG(["r1", "r2"], false)] : [];
-      },
-      lerPerfilDaPagina: { ok: true, userId: "1" },
-      buscarJson: { ok: true, status: 200, json: paginaRest([], null, false) },
-    });
-
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 2 });
-    const r = await coletor.coletar({
-      adaptador: instagram, handle: "f", profileKey: "ig:@f",
-      urlDoPerfil: "https://www.instagram.com/f/",
-    });
-
-    expect(repo.posts.todos().map((p) => p.id)).toEqual(["r1", "r2"]);
-    expect(r.indexados).toBe(2);
-
-    // A rolagem veio antes da primeira consulta a API.
-    const ordem = executor.chamadas.map((c) => c.nome);
-    expect(ordem.indexOf("rolarUmPouco")).toBeLessThan(ordem.indexOf("buscarJson"));
-  });
-
-  it("traz a aba para frente antes de rolar", async () => {
-    const repo = repoFalso();
-    const executor = executorFalso({
-      capturaInstalada: true,
-      lerTotalDaPagina: { total: null },
-      rolarUmPouco: { alturaDepois: 1 },
       drenarCapturas: [],
       lerPerfilDaPagina: { ok: true, userId: "1" },
-      buscarJson: { ok: true, status: 200, json: paginaRest([], null, false) },
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a", "b"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 1 });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
     });
 
-    // Sem foco o Instagram nao carrega mais nada.
-    expect(executor.ativar).toHaveBeenCalledWith(9);
-    expect(executor.restaurar).toHaveBeenCalled();
+    // A API deu conta do total declarado: rolagem nem entra.
+    expect(executor.chamadas.some((c) => c.nome === "rolarUmPouco")).toBe(false);
   });
 
-  it("manda os empurrões e a pausa para dentro da página", async () => {
+  it("pede 50 por requisição, não 12", async () => {
     const repo = repoFalso();
     const executor = executorFalso({
       capturaInstalada: true,
-      lerTotalDaPagina: { total: null },
-      rolarUmPouco: { alturaDepois: 1 },
+      lerTotalDaPagina: { total: 2, fonte: "json" },
       drenarCapturas: [],
       lerPerfilDaPagina: { ok: true, userId: "1" },
-      buscarJson: { ok: true, status: 200, json: paginaRest([], null, false) },
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a", "b"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    const url = executor.chamadas.find((c) => c.nome === "buscarJson").args[0];
+    expect(url).toContain("count=50");
+  });
+
+  it("avisa que vai demorar quando precisa recuar para a rolagem", async () => {
+    const repo = repoFalso();
+    const avisos = [];
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 500, fonte: "json" },
+      drenarCapturas: [],
+      lerPerfilDaPagina: { ok: true, userId: "1" },
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a"], null, false) },
+      rolarUmPouco: { alturaDepois: 1 },
     });
 
     const coletor = criarColetor({
       executor, repo, esperar: semEspera, rolagensSemNovidade: 1,
-      passosPorRodada: 7, pausaEntrePassos: 1234,
+      aoProgresso: (e) => { if (e.aviso) avisos.push(e.aviso); },
     });
     await coletor.coletar({
       adaptador: instagram, handle: "f", profileKey: "ig:@f",
       urlDoPerfil: "https://www.instagram.com/f/",
     });
 
-    const chamada = executor.chamadas.find((c) => c.nome === "rolarUmPouco");
-    expect(chamada.args).toEqual([7, 1234]);
+    expect(avisos.join(" ")).toMatch(/mais lento/i);
+    expect(avisos.join(" ")).toMatch(/faltam ~499/);
   });
 });
 
@@ -659,7 +649,7 @@ describe("pré-requisitos", () => {
   it("avisa quando o script de captura não está na aba", async () => {
     const repo = repoFalso();
     const executor = executorFalso({ capturaInstalada: false });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
     await expect(
       coletor.coletar({
@@ -673,7 +663,7 @@ describe("pré-requisitos", () => {
     const repo = repoFalso();
     const executor = executorFalso({ capturaInstalada: false });
     executor.acharOuAbrirAba.mockResolvedValue({ abaId: 9, criada: true });
-    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolarAntes: false });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
     await expect(
       coletor.coletar({

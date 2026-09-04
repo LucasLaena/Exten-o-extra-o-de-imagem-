@@ -1,5 +1,5 @@
 import {
-  pingar, capturaInstalada, lerPerfilDaPagina, sondarInstagram, IG_APP_ID,
+  pingar, capturaInstalada, lerPerfilDaPagina, sondarInstagram, sondarFeed, IG_APP_ID,
 } from "./sondas.js";
 
 /**
@@ -88,6 +88,35 @@ export async function rodarDiagnostico({ executor, alvo, repo }) {
         }
       } catch (erro) {
         registrar("Perfil encontrado no Instagram", "erro", erro.message);
+      }
+
+      // O endpoint de feed é o que separa um minuto de meia hora. Se ele
+      // responder, a coleta é rápida; se não, sobra a rolagem.
+      const idConhecido = passos.find((p) => p.nome === "Perfil encontrado no Instagram");
+      const userId = idConhecido?.detalhe?.match(/id (d+)/)?.[1];
+
+      if (userId) {
+        try {
+          const feed = await executor.rodar(aba.abaId, sondarFeed, [userId, IG_APP_ID, 50]);
+          if (feed?.ok && feed.itens > 0) {
+            registrar(
+              "Feed rápido disponível",
+              "ok",
+              `${feed.itens} publicações numa requisição` +
+                (feed.temMais ? ", e há mais páginas" : ", e esta é a última página"),
+            );
+          } else {
+            registrar(
+              "Feed rápido disponível",
+              "aviso",
+              `o endpoint respondeu ${feed?.status ?? 0}` +
+                (feed?.mensagem ? `: ${feed.mensagem}` : "") +
+                ". A coleta vai usar a rolagem, que funciona mas é bem mais lenta.",
+            );
+          }
+        } catch (erro) {
+          registrar("Feed rápido disponível", "aviso", erro.message);
+        }
       }
     } else {
       registrar(
