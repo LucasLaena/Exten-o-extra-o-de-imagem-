@@ -1,7 +1,7 @@
 import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
-import { criarMensageiro } from "./vida.js";
+import { criarMensageiro, extensaoViva } from "./vida.js";
 
 export const INTERVALO_SONDAGEM_MS = 400;
 
@@ -72,7 +72,10 @@ export function iniciar() {
    * A extensão foi recarregada e este script ficou órfão. Sair de cena é o
    * certo: um botão que parece funcional e não faz nada é pior que nenhum.
    */
+  let desmontado = false;
   const desmontar = () => {
+    if (desmontado) return;
+    desmontado = true;
     pararDeObservar?.();
     fecharModal();
     desmontarBotao();
@@ -84,6 +87,13 @@ export function iniciar() {
   const enviar = criarMensageiro(chrome, desmontar);
 
   pararDeObservar = observarNavegacao((url) => {
+    // Esperar um clique para notar a morte deixaria o botão na tela por tempo
+    // indefinido. A sondagem de navegação já roda; verificar aqui é de graça.
+    if (!extensaoViva(chrome)) {
+      desmontar();
+      return;
+    }
+
     const adaptador = adaptadorDaUrl(url);
     if (!adaptador) {
       fecharModal();

@@ -16,6 +16,17 @@ describe("extensaoViva", () => {
   });
 });
 
+describe("desmontagem sem clique", () => {
+  it("a checagem é barata o bastante para rodar na sondagem", () => {
+    // extensaoViva é só uma leitura de propriedade: pode rodar a cada 400ms
+    // sem custo, que é o que permite o órfão sumir sozinho.
+    const api = viva();
+    const antes = performance.now();
+    for (let i = 0; i < 10000; i++) extensaoViva(api);
+    expect(performance.now() - antes).toBeLessThan(100);
+  });
+});
+
 describe("criarMensageiro", () => {
   it("entrega a mensagem enquanto a extensão vive", async () => {
     const api = viva();
