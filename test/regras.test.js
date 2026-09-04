@@ -35,6 +35,21 @@ describe("regras de header", () => {
     }
   });
 
+  it("faz a requisição direta parecer vir do próprio site", () => {
+    // Sem estes cabeçalhos a busca sai com Origin chrome-extension:// e o
+    // Instagram recusa. É o que permite coletar sem abrir aba nenhuma.
+    const direta = regras.find((r) => r.condition.urlFilter === "||instagram.com");
+    expect(direta).toBeTruthy();
+
+    const nomes = direta.action.requestHeaders.map((h) => h.header.toLowerCase());
+    expect(nomes).toContain("referer");
+    expect(nomes).toContain("origin");
+    expect(nomes).toContain("sec-fetch-site");
+
+    const origem = direta.action.requestHeaders.find((h) => h.header === "Origin");
+    expect(origem.value).toBe("https://www.instagram.com");
+  });
+
   it("todo host das regras está declarado no manifest", () => {
     const permitidos = manifest.host_permissions.join(" ");
     for (const r of regras) {

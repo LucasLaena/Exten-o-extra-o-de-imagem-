@@ -5,11 +5,23 @@
     "action": {
       "type": "modifyHeaders",
       "requestHeaders": [
-        { "header": "Referer", "operation": "set", "value": "https://www.instagram.com/" },
-        { "header": "Origin", "operation": "remove" }
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://www.instagram.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "remove"
+        }
       ]
     },
-    "condition": { "urlFilter": "||cdninstagram.com", "resourceTypes": ["xmlhttprequest"] }
+    "condition": {
+      "urlFilter": "||cdninstagram.com",
+      "resourceTypes": [
+        "xmlhttprequest"
+      ]
+    }
   },
   {
     "id": 2,
@@ -17,11 +29,23 @@
     "action": {
       "type": "modifyHeaders",
       "requestHeaders": [
-        { "header": "Referer", "operation": "set", "value": "https://www.instagram.com/" },
-        { "header": "Origin", "operation": "remove" }
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://www.instagram.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "remove"
+        }
       ]
     },
-    "condition": { "urlFilter": "||fbcdn.net", "resourceTypes": ["xmlhttprequest"] }
+    "condition": {
+      "urlFilter": "||fbcdn.net",
+      "resourceTypes": [
+        "xmlhttprequest"
+      ]
+    }
   },
   {
     "id": 3,
@@ -29,11 +53,23 @@
     "action": {
       "type": "modifyHeaders",
       "requestHeaders": [
-        { "header": "Referer", "operation": "set", "value": "https://www.tiktok.com/" },
-        { "header": "Origin", "operation": "remove" }
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://www.tiktok.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "remove"
+        }
       ]
     },
-    "condition": { "urlFilter": "||tiktokcdn.com", "resourceTypes": ["xmlhttprequest"] }
+    "condition": {
+      "urlFilter": "||tiktokcdn.com",
+      "resourceTypes": [
+        "xmlhttprequest"
+      ]
+    }
   },
   {
     "id": 4,
@@ -41,10 +77,57 @@
     "action": {
       "type": "modifyHeaders",
       "requestHeaders": [
-        { "header": "Referer", "operation": "set", "value": "https://www.tiktok.com/" },
-        { "header": "Origin", "operation": "remove" }
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://www.tiktok.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "remove"
+        }
       ]
     },
-    "condition": { "urlFilter": "||tiktokcdn-us.com", "resourceTypes": ["xmlhttprequest"] }
+    "condition": {
+      "urlFilter": "||tiktokcdn-us.com",
+      "resourceTypes": [
+        "xmlhttprequest"
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://www.instagram.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "set",
+          "value": "https://www.instagram.com"
+        },
+        {
+          "header": "Sec-Fetch-Site",
+          "operation": "set",
+          "value": "same-origin"
+        },
+        {
+          "header": "Sec-Fetch-Mode",
+          "operation": "set",
+          "value": "cors"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||instagram.com",
+      "resourceTypes": [
+        "xmlhttprequest"
+      ]
+    }
   }
 ]

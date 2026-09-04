@@ -4,6 +4,8 @@ import { criarBaixador } from "./baixador.js";
 import { criarGrade } from "./grid.js";
 import { criarExecutor } from "./executor.js";
 import { criarColetor } from "./coletor.js";
+import { criarColetorDireto } from "./direto.js";
+import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
 import { rodarDiagnostico } from "./diagnostico.js";
@@ -134,6 +136,11 @@ async function redesenhar() {
     })),
   );
 
+  const contagem = resumirCatalogo(posts);
+  const resumo = textoDoResumo(contagem);
+  $("resumo").hidden = !resumo;
+  $("resumo").textContent = resumo;
+
   const tela = estadoDaTela({
     total,
     baixados: baixados.size,
@@ -199,6 +206,27 @@ async function trocarAlvo(entrada, { redesenha = true } = {}) {
 
 // --- ações ------------------------------------------------------------------
 
+/** O que dizer enquanto a coleta anda, venha ela de qual caminho vier. */
+function relatarProgresso({ indexados, paginas, total, aviso, rolando, paradas, limite, semAba }) {
+  if (aviso) {
+    dizer(`${aviso} (${numero(indexados ?? 0)} até agora)`);
+    return;
+  }
+
+  const quanto = total
+    ? `${numero(indexados)} de ~${numero(total)} ` +
+      `(${Math.min(100, Math.round((indexados / total) * 100))}%)`
+    : `${numero(indexados)} publicações`;
+
+  const como = semAba
+    ? "sem abrir aba"
+    : rolando
+      ? `rolando a página${paradas > 0 ? `, ${paradas}/${limite} sem novidade` : ""}`
+      : `${paginas} páginas`;
+
+  dizer(`Buscando… ${quanto} · ${como}`);
+}
+
 async function indexar({ eDepoisBaixar = false } = {}) {
   if (!(await trocarAlvo($("urlPerfil").value, { redesenha: false }))) return;
 
@@ -210,24 +238,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
   const coletor = criarColetor({
     executor,
     repo,
-    aoProgresso: ({ indexados, paginas, total, aviso, rolando, paradas, limite }) => {
-      if (aviso) {
-        dizer(`${aviso} (${numero(indexados)} até agora)`);
-        return;
-      }
-
-      // Com o total declarado dá para dizer quanto falta; sem ele, só o quanto
-      // já veio. Nos dois casos o número precisa mudar, senão parece travado.
-      const quanto = total
-        ? `${numero(indexados)} de ~${numero(total)} (${Math.min(100, Math.round((indexados / total) * 100))}%)`
-        : `${numero(indexados)} publicações`;
-
-      const como = rolando
-        ? `rolando a página${paradas > 0 ? `, ${paradas}/${limite} rodadas sem novidade` : ""}`
-        : `${paginas} páginas`;
-
-      dizer(`Indexando… ${quanto} · ${como}`);
-    },
+    aoProgresso: relatarProgresso,
   });
 
   try {
@@ -245,16 +256,39 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     posts = [];
     await redesenhar();
 
-    dizer("Abrindo a aba do perfil…");
-    const r = await coletor.coletar({
-      adaptador: alvo.adaptador,
-      handle: alvo.handle,
-      profileKey: alvo.profileKey,
-      urlDoPerfil: alvo.urlDoPerfil,
-      seqInicial: 0,
-      teto: tetoDaIndexacao(pedidoDeEscopo()),
-      sinal: controle.signal,
-    });
+    const teto = tetoDaIndexacao(pedidoDeEscopo());
+    let r = null;
+
+    // A coleta direta não abre aba nenhuma e não toma a tela: o computador
+    // continua seu enquanto ela roda. Só quando ela não dá conta é que
+    // caímos para o caminho que abre a aba do perfil.
+    if (alvo.adaptador.id === "instagram") {
+      try {
+        dizer("Buscando direto, sem abrir aba…");
+        r = await criarColetorDireto({ repo, aoProgresso: relatarProgresso }).coletar({
+          adaptador: alvo.adaptador,
+          handle: alvo.handle,
+          profileKey: alvo.profileKey,
+          teto,
+          sinal: controle.signal,
+        });
+      } catch (erro) {
+        if (erro.recuperavel === false) throw erro;
+        dizer(`${erro.message} Tentando pela aba do perfil…`);
+      }
+    }
+
+    if (!r) {
+      r = await coletor.coletar({
+        adaptador: alvo.adaptador,
+        handle: alvo.handle,
+        profileKey: alvo.profileKey,
+        urlDoPerfil: alvo.urlDoPerfil,
+        seqInicial: 0,
+        teto,
+        sinal: controle.signal,
+      });
+    }
     const comoVeio = r.recuouParaRolagem ? " (coletado pela rolagem da página)" : "";
     const doTotal = r.total ? ` de ~${numero(r.total)} que o perfil declara` : "";
     dizer(
