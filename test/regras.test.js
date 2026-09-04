@@ -5,6 +5,13 @@ const regras = JSON.parse(readFileSync("src/background/regras.json", "utf8"));
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
 
 describe("regras de header", () => {
+  it("nenhuma regra força Origin: isso quebraria a requisição em CORS", () => {
+    for (const r of regras) {
+      const origem = r.action.requestHeaders.find((h) => h.header === "Origin");
+      if (origem) expect(origem.operation).toBe("remove");
+    }
+  });
+
   it("tem ids únicos e positivos", () => {
     const ids = regras.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -43,11 +50,11 @@ describe("regras de header", () => {
 
     const nomes = direta.action.requestHeaders.map((h) => h.header.toLowerCase());
     expect(nomes).toContain("referer");
-    expect(nomes).toContain("origin");
-    expect(nomes).toContain("sec-fetch-site");
 
+    // Origin é REMOVIDO, nunca forçado: forçá-lo joga a requisição na
+    // validação de CORS, que falha porque a origem real é chrome-extension://.
     const origem = direta.action.requestHeaders.find((h) => h.header === "Origin");
-    expect(origem.value).toBe("https://www.instagram.com");
+    expect(origem.operation).toBe("remove");
   });
 
   it("todo host das regras está declarado no manifest", () => {

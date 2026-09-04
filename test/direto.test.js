@@ -185,6 +185,36 @@ describe("quando não dá para seguir sem aba", () => {
     expect(erro.message).toMatch(/identificador/i);
   });
 
+  it("diz a causa crua quando a requisição nem sai", async () => {
+    // "status 0" não distingue rede, CORS e cabeçalho recusado. A mensagem do
+    // erro é o que permite acertar a causa sem chutar.
+    const repo = repoFalso();
+    const buscar = vi.fn(async (url) => {
+      if (url.includes("/api/v1/feed/")) throw new TypeError("Failed to fetch");
+      return {
+        ok: true, status: 200,
+        text: async () => htmlDoPerfil(),
+      };
+    });
+
+    const erro = await coletar(buscar, repo).catch((e) => e);
+    expect(erro.message).toMatch(/nem saiu/i);
+    expect(erro.message).toContain("Failed to fetch");
+  });
+
+  it("repassa o corpo da recusa, que costuma dizer o motivo", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso((url) =>
+      url.includes("/api/v1/feed/")
+        ? { status: 401, corpo: "login_required" }
+        : { corpo: htmlDoPerfil() },
+    );
+
+    const erro = await coletar(buscar.fn, repo).catch((e) => e);
+    expect(erro.message).toContain("401");
+    expect(erro.message).toContain("login_required");
+  });
+
   it("insiste antes de desistir de uma página", async () => {
     const repo = repoFalso();
     let feeds = 0;

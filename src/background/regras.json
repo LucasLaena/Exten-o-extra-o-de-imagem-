@@ -108,18 +108,7 @@
         },
         {
           "header": "Origin",
-          "operation": "set",
-          "value": "https://www.instagram.com"
-        },
-        {
-          "header": "Sec-Fetch-Site",
-          "operation": "set",
-          "value": "same-origin"
-        },
-        {
-          "header": "Sec-Fetch-Mode",
-          "operation": "set",
-          "value": "cors"
+          "operation": "remove"
         }
       ]
     },

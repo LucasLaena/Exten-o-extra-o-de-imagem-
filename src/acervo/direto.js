@@ -120,6 +120,7 @@ export function criarColetorDireto({
       `?count=${POR_PAGINA}${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ""}`;
 
     let ultima = null;
+    let motivo = null;
 
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       if (sinal?.aborted) break;
@@ -132,26 +133,29 @@ export function criarColetorDireto({
           try {
             return JSON.parse(resposta.texto);
           } catch {
-            ultima = 0;
+            motivo = `resposta não era JSON: ${resposta.texto.slice(0, 120)}`;
           }
+        } else {
+          motivo = `o Instagram respondeu ${resposta.status}: ${resposta.texto.slice(0, 120)}`;
         }
-      } catch {
+      } catch (erro) {
+        // "status 0" não diz nada: pode ser rede, CORS ou cabeçalho recusado.
+        // Guardar a mensagem crua é o que permite acertar a causa na primeira.
         ultima = 0;
+        motivo = `a requisição nem saiu: ${erro?.message ?? erro}`;
       }
 
       if (tentativa < TENTATIVAS) {
-        aoProgresso?.({
-          aviso: `O Instagram respondeu ${ultima}. Tentando de novo…`,
-        });
+        aoProgresso?.({ aviso: `${motivo} Tentando de novo…` });
         await esperar(2500 * tentativa, sinal);
       }
     }
 
     const erro = new ErroDireto(
-      `O feed respondeu ${ultima ?? 0} depois de ${TENTATIVAS} tentativas` +
-      `${csrf ? "" : ", e sem o token que a API exige"}.`,
+      `${motivo ?? `o feed respondeu ${ultima ?? 0}`}` +
+      `${csrf ? "" : " (e sem o token que a API exige)"}`,
     );
-    console.warn("[Acervo] busca sem aba falhou:", erro.message);
+    console.warn("[Acervo] busca sem aba falhou:", erro.message, { url, status: ultima, csrf: Boolean(csrf) });
     throw erro;
   }
 
