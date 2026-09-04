@@ -3,6 +3,7 @@ import {
   IG_APP_ID,
   capturaInstalada,
   buscarJson,
+  lerPerfilDaPagina,
   sondarInstagram,
   rolarAteOFim,
   drenarCapturas,
@@ -61,17 +62,46 @@ export function criarColetor({
     aoProgresso?.({ indexados: estado.indexados, paginas: estado.paginas, ...extra });
   }
 
-  /** Instagram: pagina direto pelo endpoint de feed, de dentro da aba. */
-  async function coletarInstagram({ abaId, adaptador, handle, profileKey, estado, teto, sinal }) {
-    const perfil = await executor.rodar(abaId, sondarInstagram, [handle, IG_APP_ID]);
+  /**
+   * Descobre o id do perfil. Lê a página primeiro, que não custa requisição
+   * nenhuma; a API é plano B porque devolve 429 com muita facilidade.
+   */
+  async function identificarPerfil(abaId, handle) {
+    const daPagina = await executor.rodar(abaId, lerPerfilDaPagina, [handle]);
+    if (daPagina?.ok) return { ok: true, userId: daPagina.userId, total: null, privado: false };
 
-    if (!perfil?.ok) {
+    const daApi = await executor.rodar(abaId, sondarInstagram, [handle, IG_APP_ID]);
+    if (daApi?.ok) return daApi;
+
+    if (daApi?.status === 429) {
       throw new ErroDeColeta(
-        `Não consegui identificar o perfil @${handle} ` +
-        `(o Instagram respondeu ${perfil?.status ?? "nada"}). ` +
-        "Confira se o perfil existe e se você está logado.",
+        "O Instagram está limitando as consultas agora (429). Espere alguns minutos " +
+        "e tente de novo. Dica: deixe a aba do perfil aberta e role a grade antes de " +
+        "indexar — assim o Acervo lê o id direto da página, sem consultar nada.",
       );
     }
+    throw new ErroDeColeta(
+      `Não consegui identificar o perfil @${handle} ` +
+      `(o Instagram respondeu ${daApi?.status ?? "nada"}). ` +
+      "Confira se o perfil existe e se você está logado nessa aba.",
+    );
+  }
+
+  /** Instagram: pagina direto pelo endpoint de feed, de dentro da aba. */
+  async function coletarInstagram({ abaId, adaptador, handle, profileKey, estado, teto, sinal }) {
+    // O que a página já carregou entra sem custo nenhum de rede.
+    const jaCarregado = (await executor.rodar(abaId, drenarCapturas)) ?? [];
+    for (const captura of jaCarregado) {
+      const pagina = adaptador.parsear(captura.json);
+      const novos = preparar(pagina.itens, estado, profileKey);
+      if (novos.length > 0) {
+        estado.paginas++;
+        await gravar(novos, estado, profileKey);
+      }
+    }
+
+    const perfil = await identificarPerfil(abaId, handle);
+
     if (perfil.privado) {
       throw new ErroDeColeta(
         `O perfil @${handle} é privado. O Acervo só cataloga o que a sua conta já pode ver.`,

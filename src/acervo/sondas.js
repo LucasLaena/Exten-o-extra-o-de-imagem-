@@ -38,8 +38,38 @@ export async function buscarJson(url, init) {
 }
 
 /**
- * Identifica o perfil do Instagram pelo handle. O endpoint web_profile_info
- * devolve o id numérico, que a paginação do feed exige, e o total declarado.
+ * Descobre o id do perfil lendo a PRÓPRIA PÁGINA já carregada.
+ *
+ * Custo zero de rede, e por isso imune ao 429 que o endpoint web_profile_info
+ * devolve com facilidade. Esta é a primeira tentativa; a consulta à API é o
+ * plano B.
+ */
+export function lerPerfilDaPagina(handle) {
+  const html = document.documentElement ? document.documentElement.innerHTML : "";
+  const seguro = String(handle).replace(/[^A-Za-z0-9_]/g, function (c) {
+    return "\\" + c;
+  });
+
+  const padroes = [
+    new RegExp('"id":"(\\d+)","username":"' + seguro + '"', "i"),
+    new RegExp('"username":"' + seguro + '","id":"(\\d+)"', "i"),
+    new RegExp('"profilePage_(\\d+)"'),
+    new RegExp('"user_id":"(\\d+)"'),
+    new RegExp('"owner":\\{"id":"(\\d+)"'),
+  ];
+
+  for (const padrao of padroes) {
+    const achado = html.match(padrao);
+    if (achado && achado[1]) return { ok: true, userId: achado[1], fonte: "pagina" };
+  }
+  return { ok: false, fonte: "pagina" };
+}
+
+/**
+ * Identifica o perfil do Instagram pelo handle, consultando a API.
+ *
+ * Plano B: este endpoint é agressivamente limitado e devolve 429 com
+ * facilidade. Prefira lerPerfilDaPagina.
  */
 export async function sondarInstagram(handle, appId) {
   const url =
@@ -51,19 +81,24 @@ export async function sondarInstagram(handle, appId) {
       headers: { "x-ig-app-id": appId, "x-requested-with": "XMLHttpRequest" },
     });
     if (!resposta.ok) return { ok: false, status: resposta.status };
+
     const json = await resposta.json();
-    const usuario = json?.data?.user;
-    if (!usuario?.id) return { ok: false, status: resposta.status, erro: "resposta sem data.user" };
+    const usuario = json && json.data ? json.data.user : null;
+    if (!usuario || !usuario.id) {
+      return { ok: false, status: resposta.status, erro: "resposta sem data.user" };
+    }
     return {
       ok: true,
       status: resposta.status,
       userId: String(usuario.id),
-      handle: usuario.username ?? handle,
-      total: usuario.edge_owner_to_timeline_media?.count ?? null,
+      handle: usuario.username || handle,
+      total: usuario.edge_owner_to_timeline_media
+        ? usuario.edge_owner_to_timeline_media.count
+        : null,
       privado: Boolean(usuario.is_private),
     };
   } catch (erro) {
-    return { ok: false, status: 0, erro: String(erro?.message ?? erro) };
+    return { ok: false, status: 0, erro: String(erro && erro.message ? erro.message : erro) };
   }
 }
 
@@ -71,7 +106,7 @@ export async function sondarInstagram(handle, appId) {
 export function rolarAteOFim() {
   const altura = Math.max(
     document.documentElement.scrollHeight,
-    document.body?.scrollHeight ?? 0,
+    document.body ? document.body.scrollHeight : 0,
   );
   window.scrollTo(0, altura);
   return altura;

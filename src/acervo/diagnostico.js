@@ -1,4 +1,6 @@
-import { pingar, capturaInstalada, sondarInstagram, IG_APP_ID } from "./sondas.js";
+import {
+  pingar, capturaInstalada, lerPerfilDaPagina, sondarInstagram, IG_APP_ID,
+} from "./sondas.js";
 
 /**
  * Testa cada elo da corrente e diz qual quebrou, com o que fazer.
@@ -58,21 +60,30 @@ export async function rodarDiagnostico({ executor, alvo, repo }) {
 
     if (alvo.adaptador.id === "instagram") {
       try {
-        const perfil = await executor.rodar(aba.abaId, sondarInstagram, [alvo.handle, IG_APP_ID]);
+        // A página primeiro: não custa requisição e por isso não sofre 429.
+        const daPagina = await executor.rodar(aba.abaId, lerPerfilDaPagina, [alvo.handle]);
+        const perfil = daPagina?.ok
+          ? { ...daPagina, status: 200 }
+          : await executor.rodar(aba.abaId, sondarInstagram, [alvo.handle, IG_APP_ID]);
         if (perfil?.ok) {
           registrar(
             "Perfil encontrado no Instagram",
             perfil.privado ? "aviso" : "ok",
             perfil.privado
               ? `id ${perfil.userId}, mas é privado: só cataloga se você seguir`
-              : `id ${perfil.userId}${perfil.total != null ? `, ${perfil.total} publicações` : ""}`,
+              : `id ${perfil.userId}` +
+                (perfil.total != null ? `, ${perfil.total} publicações` : "") +
+                (perfil.fonte === "pagina" ? " (lido da própria página, sem consulta)" : ""),
           );
         } else {
           registrar(
             "Perfil encontrado no Instagram",
             "erro",
-            `o Instagram respondeu ${perfil?.status ?? "nada"}. ` +
-            "Confira se você está logado nessa aba.",
+            perfil?.status === 429
+              ? "o Instagram está limitando consultas (429). Espere alguns minutos. " +
+                "Enquanto isso, role a grade do perfil: o id passa a ser lido da própria página."
+              : `o Instagram respondeu ${perfil?.status ?? "nada"}. ` +
+                "Confira se você está logado nessa aba.",
           );
         }
       } catch (erro) {
