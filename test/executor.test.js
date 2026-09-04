@@ -143,3 +143,38 @@ describe("fecharSeCriada", () => {
     await expect(ex.fecharSeCriada({ abaId: 5, criada: true })).resolves.toBeUndefined();
   });
 });
+
+describe("ativar e restaurar", () => {
+  it("traz a aba para frente e informa qual estava ativa", async () => {
+    const api = apiFalsa();
+    api.tabs.query.mockResolvedValue([{ id: 3, active: true }]);
+    const ex = criarExecutor(api, { esperar: semEspera });
+
+    const anterior = await ex.ativar(9);
+
+    expect(anterior).toBe(3);
+    expect(api.tabs.update).toHaveBeenCalledWith(9, { active: true });
+  });
+
+  it("devolve o foco para a aba anterior", async () => {
+    const api = apiFalsa();
+    const ex = criarExecutor(api, { esperar: semEspera });
+    await ex.restaurar(3);
+    expect(api.tabs.update).toHaveBeenCalledWith(3, { active: true });
+  });
+
+  it("não faz nada quando não havia aba anterior", async () => {
+    const api = apiFalsa();
+    const ex = criarExecutor(api, { esperar: semEspera });
+    await ex.restaurar(null);
+    expect(api.tabs.update).not.toHaveBeenCalled();
+  });
+
+  it("perder o foco não derruba a coleta", async () => {
+    const api = apiFalsa();
+    api.tabs.update.mockRejectedValue(new Error("janela fechada"));
+    const ex = criarExecutor(api, { esperar: semEspera });
+    await expect(ex.ativar(9)).resolves.toBeDefined();
+    await expect(ex.restaurar(3)).resolves.toBeUndefined();
+  });
+});

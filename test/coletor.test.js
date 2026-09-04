@@ -32,6 +32,8 @@ function executorFalso(respostas) {
     }),
     acharOuAbrirAba: vi.fn().mockResolvedValue({ abaId: 9, criada: false }),
     fecharSeCriada: vi.fn().mockResolvedValue(undefined),
+    ativar: vi.fn().mockResolvedValue(3),
+    restaurar: vi.fn().mockResolvedValue(undefined),
   };
 }
 

@@ -123,5 +123,34 @@ export function criarExecutor(api, opcoes = {}) {
     }
   }
 
-  return { rodar, acharOuAbrirAba, fecharSeCriada, esperarCarregar };
+  /**
+   * Traz a aba para frente e devolve qual estava ativa antes.
+   *
+   * A rolagem depende disso: o Instagram carrega mais publicações por
+   * IntersectionObserver, que não dispara em aba de segundo plano. Rolar uma
+   * aba escondida não produz nada.
+   */
+  async function ativar(abaId) {
+    let anterior = null;
+    try {
+      const [ativa] = await api.tabs.query({ active: true, currentWindow: true });
+      anterior = ativa?.id ?? null;
+      await api.tabs.update(abaId, { active: true });
+    } catch {
+      // sem foco não dá para rolar, mas não é motivo para derrubar a coleta
+    }
+    return anterior;
+  }
+
+  /** Devolve o foco para onde estava, se ainda existir. */
+  async function restaurar(abaId) {
+    if (abaId == null) return;
+    try {
+      await api.tabs.update(abaId, { active: true });
+    } catch {
+      // a aba anterior pode ter sido fechada
+    }
+  }
+
+  return { rodar, acharOuAbrirAba, fecharSeCriada, esperarCarregar, ativar, restaurar };
 }

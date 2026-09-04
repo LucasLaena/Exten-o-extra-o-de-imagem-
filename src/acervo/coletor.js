@@ -17,7 +17,9 @@ export const ESPERA_ROLAGEM_MIN_MS = 1200;
 export const ESPERA_ROLAGEM_MAX_MS = 2600;
 /** Teto absoluto de rolagens. Página que cresce sem parar não pode girar para sempre. */
 export const MAX_ROLAGENS = 500;
-export const POR_PAGINA = 12;
+export const POR_PAGINA = 50;
+/** Quantas vezes insistir numa pagina antes de desistir da API. */
+export const TENTATIVAS_POR_PAGINA = 3;
 
 /** Erro com texto pronto para a tela. */
 export class ErroDeColeta extends Error {
@@ -155,18 +157,37 @@ export function criarColetor({
         `https://www.instagram.com/api/v1/feed/user/${perfil.userId}/` +
         `?count=${POR_PAGINA}${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ""}`;
 
-      const resposta = await executor.rodar(abaId, buscarJson, [
-        url,
-        { headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" } },
-      ]);
+      // Uma negativa isolada nao pode encerrar a coleta: o Instagram
+      // responde 429 esporadico e volta ao normal em segundos.
+      let resposta = null;
+      for (let tentativa = 1; tentativa <= TENTATIVAS_POR_PAGINA; tentativa++) {
+        if (sinal?.aborted) break;
 
-      // Bloqueio no meio da paginação não é o fim: a rolagem não faz
-      // requisição nenhuma por conta própria, então atravessa o rate-limit.
-      if (ehStatusDeBloqueio(resposta?.status) || !resposta?.ok) {
+        resposta = await executor.rodar(abaId, buscarJson, [
+          url,
+          { headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" } },
+        ]);
+        if (resposta?.ok) break;
+
+        if (tentativa < TENTATIVAS_POR_PAGINA) {
+          aoProgresso?.({
+            indexados: estado.indexados,
+            paginas: estado.paginas,
+            total: estado.totalDeclarado,
+            aviso:
+              `O Instagram respondeu ${resposta?.status ?? 0}. ` +
+              `Tentando de novo (${tentativa} de ${TENTATIVAS_POR_PAGINA - 1})…`,
+          });
+          await esperar(3000 * tentativa, sinal);
+        }
+      }
+
+      if (!resposta?.ok) {
         estado.recuouParaRolagem = true;
         aoProgresso?.({
           indexados: estado.indexados,
           paginas: estado.paginas,
+          total: estado.totalDeclarado,
           aviso:
             `O Instagram limitou a consulta (${resposta?.status ?? 0}). ` +
             "Continuando pela rolagem da página, que é mais lenta.",
@@ -211,6 +232,18 @@ export function criarColetor({
     let semNovidade = 0;
     let alturaAnterior = 0;
     let rodadas = 0;
+
+    // Sem foco o Instagram não carrega mais nada: o IntersectionObserver que
+    // dispara a paginação infinita não roda em aba de segundo plano.
+    const abaAnterior = await executor.ativar?.(abaId);
+    aoProgresso?.({
+      indexados: estado.indexados,
+      paginas: estado.paginas,
+      total: estado.totalDeclarado,
+      aviso: "Trouxe a aba do perfil para frente: ela precisa estar visível para carregar mais.",
+    });
+
+    try {
 
     while (semNovidade < rolagensSemNovidade && rodadas < maxRolagens) {
       rodadas++;
@@ -258,6 +291,10 @@ export function criarColetor({
         break;
       }
       if (teto != null && estado.indexados >= teto) break;
+    }
+
+    } finally {
+      await executor.restaurar?.(abaAnterior);
     }
 
     // Sem post novo por várias rodadas seguidas, com a página parada de

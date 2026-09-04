@@ -2,10 +2,16 @@ import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
 
+export const INTERVALO_SONDAGEM_MS = 400;
+
 /**
- * As duas plataformas são SPA: trocar de página não recarrega nada. O Chrome
- * não emite evento para pushState, então embrulhamos o history — e devolvemos
- * o original no cancelamento, para não deixar sujeira se a extensão recarregar.
+ * Avisa sempre que a URL muda.
+ *
+ * As duas plataformas são SPA e trocam de página sem recarregar. O detalhe que
+ * quebra a abordagem óbvia: o content script roda no mundo ISOLADO, e embrulhar
+ * `history.pushState` aqui NÃO intercepta a chamada que o app faz no mundo
+ * MAIN — são objetos diferentes. Por isso a sondagem periódica não é um extra,
+ * é o mecanismo principal. O resto são atalhos para reagir mais rápido.
  */
 export function observarNavegacao(aoMudar) {
   let ultima = null;
@@ -17,9 +23,18 @@ export function observarNavegacao(aoMudar) {
     aoMudar(atual);
   };
 
+  // Mecanismo principal: compara a URL de tempos em tempos. Custa quase nada e
+  // pega qualquer forma de navegação, venha de onde vier.
+  const sondagem = setInterval(avisar, INTERVALO_SONDAGEM_MS);
+
+  // Atalhos, para não esperar até 400 ms quando dá para saber na hora.
+  window.addEventListener("popstate", avisar);
+  window.addEventListener("hashchange", avisar);
+  const navegacao = typeof navigation !== "undefined" ? navigation : null;
+  navegacao?.addEventListener?.("navigatesuccess", avisar);
+
   const pushOriginal = history.pushState;
   const replaceOriginal = history.replaceState;
-
   history.pushState = function (...args) {
     const r = pushOriginal.apply(this, args);
     avisar();
@@ -31,13 +46,15 @@ export function observarNavegacao(aoMudar) {
     return r;
   };
 
-  window.addEventListener("popstate", avisar);
   avisar();
 
   return () => {
+    clearInterval(sondagem);
+    window.removeEventListener("popstate", avisar);
+    window.removeEventListener("hashchange", avisar);
+    navegacao?.removeEventListener?.("navigatesuccess", avisar);
     history.pushState = pushOriginal;
     history.replaceState = replaceOriginal;
-    window.removeEventListener("popstate", avisar);
   };
 }
 
