@@ -11,12 +11,24 @@ export function escolherPasta() {
   return window.showDirectoryPicker({ mode: "readwrite", startIn: "downloads" });
 }
 
-/** Reautoriza um handle guardado do IndexedDB; devolve false se o usuário recusar. */
-export async function reautorizar(pasta) {
+/**
+ * Reautoriza um handle guardado no IndexedDB.
+ *
+ * `pedir` só pode ser true dentro de um gesto do usuário: fora dele,
+ * requestPermission lança, e uma exceção aqui derrubaria a inicialização
+ * inteira da aba em silêncio. Na carga da página a resposta é só consultar.
+ */
+export async function reautorizar(pasta, { pedir = false } = {}) {
   if (!pasta?.queryPermission) return false;
   const opcoes = { mode: "readwrite" };
-  if ((await pasta.queryPermission(opcoes)) === "granted") return true;
-  return (await pasta.requestPermission(opcoes)) === "granted";
+
+  try {
+    if ((await pasta.queryPermission(opcoes)) === "granted") return true;
+    if (!pedir) return false;
+    return (await pasta.requestPermission(opcoes)) === "granted";
+  } catch {
+    return false;
+  }
 }
 
 /**

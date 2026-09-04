@@ -68,6 +68,34 @@ describe("rotuloDoBotao", () => {
   });
 });
 
+describe("abrirModal quando o catálogo não responde", () => {
+  it("abre mesmo assim quando a consulta falha", async () => {
+    await abrir({ carregarCatalogo: async () => { throw new Error("service worker mudo"); } });
+    expect(raiz()).toBeTruthy();
+    expect($(".confirmar")).toBeTruthy();
+  });
+
+  it("abre mesmo assim quando a consulta nunca resolve", async () => {
+    // Um modal que espera para sempre é indistinguível de um botão quebrado.
+    await abrir({
+      carregarCatalogo: () => new Promise(() => {}),
+      tempoLimiteCatalogo: 20,
+    });
+    expect(raiz()).toBeTruthy();
+  });
+
+  it("diz que o catálogo é desconhecido em vez de mentir zero", async () => {
+    await abrir({ carregarCatalogo: async () => { throw new Error("x"); } });
+    expect(raiz().textContent.toLowerCase()).toContain("não consegui ler o catálogo");
+  });
+
+  it("não deixa ordenar por relevância sem saber o catálogo", async () => {
+    await abrir({ carregarCatalogo: async () => { throw new Error("x"); } });
+    const opcoes = $$('[name="ordenacao"] option');
+    expect(opcoes.find((o) => o.value === "views").disabled).toBe(true);
+  });
+});
+
 describe("abrirModal", () => {
   it("monta em Shadow DOM e mostra o perfil", async () => {
     await abrir();

@@ -274,8 +274,12 @@ async function iniciar() {
   });
 
   // Recupera a pasta escolhida numa sessão anterior, se o usuário reautorizar.
+  // Só consulta. Pedir permissão exige gesto do usuário e lançaria aqui,
+  // derrubando a inicialização inteira em silêncio.
   const guardada = await repo.handles.obter("pastaDestino");
-  if (guardada && (await reautorizar(guardada))) pastaDestino = guardada;
+  if (guardada && (await reautorizar(guardada, { pedir: false }))) {
+    pastaDestino = guardada;
+  }
 
   posts = await repo.posts.listarPorPerfil(profileKey);
   await redesenhar();
@@ -293,6 +297,12 @@ async function iniciar() {
       return;
     }
     try {
+      const guardadaAgora = await repo.handles.obter("pastaDestino");
+      if (guardadaAgora && (await reautorizar(guardadaAgora, { pedir: true }))) {
+        pastaDestino = guardadaAgora;
+        dizer("Pasta anterior reautorizada.");
+        return;
+      }
       pastaDestino = await escolherPasta();
       await repo.handles.salvar("pastaDestino", pastaDestino);
       dizer("Pasta de destino guardada.");
@@ -314,4 +324,18 @@ async function iniciar() {
   if (acao === "indexar") indexar();
 }
 
-iniciar();
+iniciar().catch((erro) => {
+  // Sem isto a página fica em "Carregando…" para sempre e não há como saber
+  // o que quebrou. Um erro visível é sempre melhor que uma tela morta.
+  console.error("[Acervo] falhei ao iniciar a aba:", erro);
+  const estado = document.getElementById("estado");
+  if (estado) estado.textContent = `Erro ao abrir o Acervo: ${erro?.message ?? erro}`;
+  mostrarVazio({
+    titulo: "O Acervo não conseguiu abrir",
+    passos: [
+      "Recarregue esta aba (F5).",
+      "Se continuar, abra o console desta aba (F12) e me mande a linha que começa com [Acervo].",
+    ],
+    porque: String(erro?.stack ?? erro),
+  });
+});

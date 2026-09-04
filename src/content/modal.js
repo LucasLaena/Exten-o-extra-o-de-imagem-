@@ -50,13 +50,31 @@ export function fecharModal() {
   document.removeEventListener("keydown", aoTeclar);
 }
 
+export const TEMPO_LIMITE_CATALOGO = 4000;
+
+/**
+ * Lê o catálogo sem nunca travar a abertura do modal. Um modal que espera para
+ * sempre é indistinguível de um botão quebrado — e foi exatamente assim que
+ * isto falhou em produção.
+ */
+async function lerCatalogo(carregarCatalogo, profileKey, tempoLimite) {
+  const desconhecido = { totalIndexado: 0, completo: false, desconhecido: true };
+  const estouro = new Promise((r) => setTimeout(() => r(desconhecido), tempoLimite));
+  try {
+    return (await Promise.race([carregarCatalogo(profileKey), estouro])) ?? desconhecido;
+  } catch {
+    return desconhecido;
+  }
+}
+
 export async function abrirModal({
   adaptador, handle, profileKey,
   carregarCatalogo, aoConfirmar, aoIndexar, aoAbrirAcervo,
+  tempoLimiteCatalogo = TEMPO_LIMITE_CATALOGO,
 }) {
   fecharModal();
 
-  const catalogo = (await carregarCatalogo(profileKey)) ?? { totalIndexado: 0, completo: false };
+  const catalogo = await lerCatalogo(carregarCatalogo, profileKey, tempoLimiteCatalogo);
   const estado = estadoInicial();
   const relevanciaLiberada = podeOrdenarPorRelevancia(catalogo);
 
@@ -87,8 +105,12 @@ export async function abrirModal({
       </header>
 
       <p class="catalogo">
-        ${numero(catalogo.totalIndexado)} publicações no catálogo${
-          catalogo.completo ? "" : ", ainda incompleto"
+        ${
+          catalogo.desconhecido
+            ? "Não consegui ler o catálogo. Abra o Acervo completo para ver o estado."
+            : `${numero(catalogo.totalIndexado)} publicações no catálogo${
+                catalogo.completo ? "" : ", ainda incompleto"
+              }`
         }
       </p>
 
