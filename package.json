@@ -1,0 +1,18 @@
+{
+  "name": "acervo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Extensao Chrome para catalogar e baixar publicacoes do Instagram e TikTok",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vendor": "node scripts/vendorizar.mjs"
+  },
+  "devDependencies": {
+    "client-zip": "^2.4.5",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
+  }
+}
