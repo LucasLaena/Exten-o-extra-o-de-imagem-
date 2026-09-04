@@ -250,6 +250,7 @@ export function criarColetor({
     try {
 
     while (semNovidade < rolagensSemNovidade && rodadas < maxRolagens) {
+      if (teto != null && estado.indexados >= teto) break;
       rodadas++;
       if (sinal?.aborted) break;
 
@@ -356,10 +357,15 @@ export function criarColetor({
 
         // A rolagem é o último recurso, não a rotina: só entra quando a API
         // não deu conta, e avisa que vai demorar.
+        // Com teto atingido o pedido já está satisfeito: rolar mais seria
+        // gastar minutos para buscar publicações que ninguém pediu.
+        const tetoAtingido = teto != null && estado.indexados >= teto;
         const faltaGente =
-          estado.totalDeclarado != null && estado.indexados < estado.totalDeclarado;
+          !tetoAtingido &&
+          estado.totalDeclarado != null &&
+          estado.indexados < estado.totalDeclarado;
 
-        if (rolarSeFaltar && (r?.recuar || faltaGente)) {
+        if (rolarSeFaltar && !tetoAtingido && (r?.recuar || faltaGente)) {
           const faltam = estado.totalDeclarado
             ? Math.max(0, estado.totalDeclarado - estado.indexados)
             : null;

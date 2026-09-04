@@ -6,6 +6,7 @@ import { criarExecutor } from "./executor.js";
 import { criarColetor } from "./coletor.js";
 import { resolverAlvo } from "./alvo.js";
 import { rodarDiagnostico } from "./diagnostico.js";
+import { tetoDaIndexacao, porQueIndexaTudo } from "./escopo.js";
 import { estadoDaTela } from "./mensagens.js";
 import {
   escolherPasta, reautorizar, criarDestinoEmPasta, criarDestinoEmMemoria,
@@ -127,6 +128,37 @@ async function redesenhar() {
   });
   dizer(tela.resumo);
   mostrarVazio(total === 0 ? tela.vazio : null);
+  atualizarNotaDeEscopo();
+}
+
+/** O que os controles da tela dizem sobre até onde catalogar. */
+function pedidoDeEscopo() {
+  return {
+    escopo: $("escopo").value,
+    modo: grade.selecionadas().size > 0 ? "manual" : "faixa",
+    ordenacao: $("ordenacao").value,
+    de: Number($("de").value) || 1,
+    ate: Number($("ate").value) || 1,
+  };
+}
+
+/** Diz na tela quando o teto não vale, e por quê. */
+function atualizarNotaDeEscopo() {
+  const pedido = pedidoDeEscopo();
+  const teto = tetoDaIndexacao(pedido);
+  const nota = $("notaEscopo");
+
+  if (teto != null) {
+    nota.hidden = false;
+    nota.textContent =
+      `Vai catalogar só as ${numero(teto)} primeiras publicações — ` +
+      "é rápido e não precisa rolar a página.";
+    return;
+  }
+
+  const motivo = porQueIndexaTudo(pedido);
+  nota.hidden = !motivo;
+  if (motivo) nota.textContent = motivo;
 }
 
 // --- perfil alvo ------------------------------------------------------------
@@ -191,6 +223,7 @@ async function indexar() {
       profileKey: alvo.profileKey,
       urlDoPerfil: alvo.urlDoPerfil,
       seqInicial: await repo.posts.maiorSeq(alvo.profileKey),
+      teto: tetoDaIndexacao(pedidoDeEscopo()),
       sinal: controle.signal,
     });
     const comoVeio = r.recuouParaRolagem ? " (coletado pela rolagem da página)" : "";
@@ -363,8 +396,11 @@ async function iniciar() {
     await redesenhar();
   }
 
-  for (const id of ["filtro", "ordenacao", "de", "ate", "pularBaixados"]) {
+  for (const id of ["filtro", "ordenacao", "de", "ate", "pularBaixados", "escopo"]) {
     $(id).addEventListener("change", redesenhar);
+  }
+  for (const id of ["de", "ate"]) {
+    $(id).addEventListener("input", atualizarNotaDeEscopo);
   }
   $("urlPerfil").addEventListener("change", () => trocarAlvo($("urlPerfil").value));
   $("urlPerfil").addEventListener("keydown", (evento) => {

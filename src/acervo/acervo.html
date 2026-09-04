@@ -62,6 +62,14 @@
         <input type="number" id="ate" min="1" value="100" />
       </label>
 
+      <label class="campo">
+        <span>Catalogar</span>
+        <select id="escopo">
+          <option value="faixa">Só até o fim da faixa</option>
+          <option value="tudo">Perfil inteiro</option>
+        </select>
+      </label>
+
       <label class="marca">
         <input type="checkbox" id="incluirCapaReel" />
         <span>Incluir capa dos vídeos</span>
@@ -77,6 +85,8 @@
         <button id="baixar" type="button" class="primario">Baixar</button>
       </div>
     </section>
+
+    <p class="nota" id="notaEscopo" hidden></p>
 
     <section class="vazio" id="vazio" hidden>
       <h2 id="vazioTitulo"></h2>
