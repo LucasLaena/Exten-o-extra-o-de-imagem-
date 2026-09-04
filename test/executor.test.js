@@ -86,8 +86,9 @@ describe("acharOuAbrirAba", () => {
 
     const r = await ex.acharOuAbrirAba("https://www.instagram.com/fulano/");
 
+    // Nasce visivel: aba escondida nao carrega o feed continuo.
     expect(api.tabs.create).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "https://www.instagram.com/fulano/", active: false }),
+      expect.objectContaining({ url: "https://www.instagram.com/fulano/", active: true }),
     );
     expect(r).toEqual({ abaId: 5, criada: true });
   });
@@ -120,6 +121,13 @@ describe("acharOuAbrirAba", () => {
     expect(await ex.acharOuAbrirAba("https://www.instagram.com/fulano/")).toEqual({
       abaId: 7, criada: false,
     });
+  });
+
+  it("aceita abrir escondida quando pedido", async () => {
+    const api = apiFalsa();
+    const ex = criarExecutor(api, { esperar: semEspera });
+    await ex.acharOuAbrirAba("https://x.test/", { visivel: false });
+    expect(api.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
   });
 });
 

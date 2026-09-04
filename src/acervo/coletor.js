@@ -6,15 +6,16 @@ import {
   lerPerfilDaPagina,
   lerTotalDaPagina,
   sondarInstagram,
-  rolarAteOFim,
+  rolarUmPouco,
   drenarCapturas,
 } from "./sondas.js";
 
 export const ESPERA_MIN_MS = 800;
 export const ESPERA_MAX_MS = 2000;
 export const ROLAGENS_SEM_NOVIDADE = 8;
-export const ESPERA_ROLAGEM_MIN_MS = 1200;
-export const ESPERA_ROLAGEM_MAX_MS = 2600;
+/** Quantos empurrões por ida e volta, e a pausa entre eles, dentro da página. */
+export const PASSOS_POR_RODADA = 5;
+export const PAUSA_ENTRE_PASSOS_MS = 900;
 /** Teto absoluto de rolagens. Página que cresce sem parar não pode girar para sempre. */
 export const MAX_ROLAGENS = 500;
 export const POR_PAGINA = 50;
@@ -44,6 +45,9 @@ export function criarColetor({
   aleatorio = Math.random,
   rolagensSemNovidade = ROLAGENS_SEM_NOVIDADE,
   maxRolagens = MAX_ROLAGENS,
+  passosPorRodada = PASSOS_POR_RODADA,
+  pausaEntrePassos = PAUSA_ENTRE_PASSOS_MS,
+  rolarAntes = true,
 }) {
   /** Acumula os posts de uma página, atribuindo seq e chave. Ignora repetidos. */
   function preparar(brutos, estado, profileKey) {
@@ -249,11 +253,13 @@ export function criarColetor({
       rodadas++;
       if (sinal?.aborted) break;
 
-      const altura = await executor.rodar(abaId, rolarAteOFim);
-      await esperar(
-        esperaAleatoria(ESPERA_ROLAGEM_MIN_MS, ESPERA_ROLAGEM_MAX_MS, aleatorio),
-        sinal,
-      );
+      // Os empurrões e as pausas acontecem dentro da página, onde a aba está
+      // ativa e o relógio não é estrangulado.
+      const rolagem = await executor.rodar(abaId, rolarUmPouco, [
+        passosPorRodada,
+        pausaEntrePassos,
+      ]);
+      const altura = rolagem?.alturaDepois ?? 0;
 
       const capturas = (await executor.rodar(abaId, drenarCapturas)) ?? [];
       estado.paginas += capturas.length;
@@ -343,6 +349,14 @@ export function criarColetor({
       const argumentos = { abaId: aba.abaId, adaptador, handle, profileKey, estado, teto, sinal };
 
       if (adaptador.id === "instagram") {
+        // Rolar primeiro: e o que faz o proprio app carregar as publicacoes,
+        // sem depender de endpoint nenhum. A API entra depois, para ir mais
+        // fundo do que a rolagem alcanca em tempo razoavel.
+        if (rolarAntes) {
+          await coletarRolando(argumentos);
+          estado.completo = false;
+        }
+
         const r = await coletarInstagram(argumentos);
 
         // A rolagem fecha o que a API não alcançou: ou porque recuou, ou

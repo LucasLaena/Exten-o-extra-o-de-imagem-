@@ -102,13 +102,19 @@ export function criarExecutor(api, opcoes = {}) {
     );
   }
 
-  /** Acha a aba do perfil aberta, ou abre uma em segundo plano. */
-  async function acharOuAbrirAba(urlDoPerfil) {
+  /**
+   * Acha a aba do perfil aberta, ou abre uma nova.
+   *
+   * A aba nova nasce em primeiro plano de propósito: aba escondida não roda
+   * o IntersectionObserver que dispara o carregamento contínuo, e o feed
+   * nunca chega a se preencher.
+   */
+  async function acharOuAbrirAba(urlDoPerfil, { visivel = true } = {}) {
     const abertas = await api.tabs.query({ url: ["*://*.instagram.com/*", "*://*.tiktok.com/*"] });
     const existente = abertas.find((a) => mesmoPerfil(a.url, urlDoPerfil));
     if (existente) return { abaId: existente.id, criada: false };
 
-    const nova = await api.tabs.create({ url: urlDoPerfil, active: false });
+    const nova = await api.tabs.create({ url: urlDoPerfil, active: visivel });
     await esperarCarregar(nova.id);
     return { abaId: nova.id, criada: true };
   }

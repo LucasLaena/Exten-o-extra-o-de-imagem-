@@ -141,6 +141,51 @@ export function rolarAteOFim() {
   return altura;
 }
 
+/**
+ * Rola várias vezes DENTRO da página, esperando entre cada uma.
+ *
+ * Duas razões para a espera acontecer aqui, e não do lado de quem chama:
+ *
+ * 1. Quem chama é a aba do Acervo, que fica em segundo plano durante a
+ *    rolagem — e o Chrome estrangula setTimeout em aba escondida. Aqui o
+ *    relógio é o da aba ativa, que corre normal.
+ * 2. Uma rolagem por ida e volta é pouco. O Instagram precisa de vários
+ *    empurrões seguidos para engatar o carregamento contínuo.
+ *
+ * Sobe um pouco antes de descer de novo: alguns feeds só disparam o
+ * carregamento quando o sentinela reentra na tela, e ficar colado no fundo
+ * nunca produz essa reentrada.
+ */
+export async function rolarUmPouco(passos, pausaMs) {
+  const dormir = (ms) => new Promise((pronto) => setTimeout(pronto, ms));
+  const alturaAtual = () =>
+    Math.max(
+      document.documentElement.scrollHeight,
+      document.body ? document.body.scrollHeight : 0,
+    );
+
+  const alturaAntes = alturaAtual();
+
+  for (let i = 0; i < passos; i++) {
+    window.scrollTo(0, alturaAtual());
+    await dormir(pausaMs);
+
+    if (i % 2 === 1) {
+      window.scrollBy(0, -Math.round(window.innerHeight * 0.8));
+      await dormir(Math.round(pausaMs / 3));
+      window.scrollTo(0, alturaAtual());
+      await dormir(Math.round(pausaMs / 3));
+    }
+  }
+
+  return {
+    alturaAntes,
+    alturaDepois: alturaAtual(),
+    y: window.scrollY,
+    fimDaPagina: window.scrollY + window.innerHeight >= alturaAtual() - 200,
+  };
+}
+
 /** Esvazia o buffer de capturas e devolve o que havia. */
 export function drenarCapturas() {
   const fila = Array.isArray(window.__acervo_capturas__) ? window.__acervo_capturas__ : [];
