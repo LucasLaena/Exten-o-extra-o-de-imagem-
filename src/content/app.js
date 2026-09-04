@@ -99,6 +99,10 @@ export function instalarPonte({ chromeApi = chrome, janela = window } = {}) {
   janela.addEventListener("message", aoMensagemDaPagina);
   chromeApi.runtime.onMessage.addListener(aoMensagemDaExtensao);
 
+  // O feed já pode ter passado antes de a ponte existir. O hook guarda a
+  // última captura justamente para poder repeti-la agora.
+  janela.postMessage({ fonte: FONTE_CONTEUDO, tipo: "pedirUltimaCaptura" }, "*");
+
   return () => {
     janela.removeEventListener("message", aoMensagemDaPagina);
     chromeApi.runtime.onMessage.removeListener(aoMensagemDaExtensao);
@@ -107,8 +111,9 @@ export function instalarPonte({ chromeApi = chrome, janela = window } = {}) {
 }
 
 export function iniciar() {
-  instalarPonte();
-
+  // observarNavegacao primeiro: ela define perfilAtual de forma síncrona, e a
+  // ponte pode receber uma captura repetida no instante em que sobe. Na ordem
+  // inversa, essa captura chegaria sem saber de que perfil é.
   observarNavegacao((url) => {
     const adaptador = adaptadorDaUrl(url);
     if (!adaptador) {
@@ -150,4 +155,6 @@ export function iniciar() {
         }),
     });
   });
+
+  instalarPonte();
 }

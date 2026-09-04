@@ -5,6 +5,7 @@ import { criarIndexador } from "./indexador.js";
 import { criarBaixador } from "./baixador.js";
 import { criarGrade } from "./grid.js";
 import { criarTransporteViaHook } from "./transporte.js";
+import { estadoDaTela } from "./mensagens.js";
 import {
   escolherPasta, reautorizar, criarDestinoEmPasta, criarDestinoEmMemoria,
   temFileSystemAccess,
@@ -62,7 +63,36 @@ async function redesenhar() {
     })),
   );
 
-  dizer(`${numero(total)} publicações no catálogo · ${numero(baixados.size)} já baixadas`);
+  const perfil = await repo.perfis.obter(profileKey);
+  const tela = estadoDaTela({
+    total,
+    baixados: baixados.size,
+    temAssinatura: Boolean(perfil?.assinatura),
+    temAba: abaAlvo != null,
+  });
+
+  dizer(tela.resumo);
+  $("indexar").disabled = !tela.podeIndexar;
+  mostrarVazio(tela.vazio);
+}
+
+/** Uma grade vazia sem explicação é o pior estado possível. */
+function mostrarVazio(vazio) {
+  const caixa = $("vazio");
+  caixa.hidden = !vazio;
+  $("grade").hidden = Boolean(vazio);
+  if (!vazio) return;
+
+  $("vazioTitulo").textContent = vazio.titulo;
+  $("vazioPorque").textContent = vazio.porque;
+
+  const passos = $("vazioPassos");
+  passos.innerHTML = "";
+  for (const passo of vazio.passos) {
+    const li = document.createElement("li");
+    li.textContent = passo;
+    passos.append(li);
+  }
 }
 
 function renderizarItem(item, el) {
@@ -275,7 +305,9 @@ async function iniciar() {
     // Quem grava a assinatura é o service worker, que a higieniza antes: a
     // carga crua carrega o header cookie e não pode ir para o banco.
     if (mensagem?.tipo === "capturou") {
-      dizer("Feed reconhecido. Já dá para indexar o perfil.");
+      // O service worker acabou de gravar a assinatura; a tela precisa refletir
+      // que agora dá para indexar.
+      redesenhar();
     }
   });
 

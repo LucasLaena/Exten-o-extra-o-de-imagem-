@@ -25,6 +25,25 @@ beforeEach(() => {
 
 afterEach(() => { desinstalar?.(); });
 
+describe("ao subir", () => {
+  it("pede ao hook a captura que aconteceu antes dela existir", async () => {
+    // A ponte só entra em document_idle; o feed já pode ter passado. Sem esse
+    // pedido, a assinatura da primeira busca some para sempre.
+    desinstalar?.();
+    const pedido = new Promise((resolve) => {
+      const ouvir = (ev) => {
+        if (ev.data?.fonte === "acervo/conteudo" && ev.data?.tipo === "pedirUltimaCaptura") {
+          window.removeEventListener("message", ouvir);
+          resolve(ev.data);
+        }
+      };
+      window.addEventListener("message", ouvir);
+    });
+    desinstalar = instalarPonte({ chromeApi });
+    await expect(pedido).resolves.toBeTruthy();
+  });
+});
+
 describe("do hook para o service worker", () => {
   it("encaminha a captura do hook", async () => {
     window.postMessage({

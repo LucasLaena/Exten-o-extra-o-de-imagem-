@@ -181,6 +181,25 @@ describe("paginação sob comando", () => {
   });
 });
 
+describe("repetir a última captura", () => {
+  it("reanuncia a captura guardada quando o content script pede", async () => {
+    // O hook entra em document_start e o content script só em document_idle.
+    // A primeira busca de feed acontece no meio, sem ninguém ouvindo — então o
+    // hook guarda a última e reanuncia quando a ponte finalmente sobe.
+    fetchFalso.mockResolvedValue(respostaJson({ data: { primeira: true } }));
+    const primeira = proximaMensagem("capturou");
+    await window.fetch(URL_FEED, { method: "POST", body: "doc_id=1" });
+    await primeira;
+
+    const repetida = proximaMensagem("capturou");
+    window.postMessage({ fonte: "acervo/conteudo", tipo: "pedirUltimaCaptura" }, "*");
+    const msg = await repetida;
+
+    expect(msg.carga.json).toEqual({ data: { primeira: true } });
+    expect(msg.carga.corpo).toBe("doc_id=1");
+  });
+});
+
 describe("sincronia com o módulo de assinatura", () => {
   it("o hook carrega os mesmos padrões de feed do core", () => {
     const fonte = readFileSync("src/page/hook.js", "utf8");

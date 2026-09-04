@@ -21,6 +21,16 @@
   const fetchOriginal = window.fetch.bind(window);
   const pareceFeed = (url) => typeof url === "string" && PADROES.some((p) => p.test(url));
 
+  // O hook entra em document_start; o content script só em document_idle. A
+  // primeira busca de feed acontece no meio, com ninguém ouvindo. Guardar a
+  // última captura é o que impede que essa assinatura se perca.
+  let ultimaCaptura = null;
+
+  const anunciarCaptura = (carga) => {
+    ultimaCaptura = carga;
+    avisar({ tipo: "capturou", carga });
+  };
+
   const avisar = (mensagem) => {
     try {
       window.postMessage({ fonte: FONTE_HOOK, ...mensagem }, "*");
@@ -75,7 +85,7 @@
         resposta
           .clone()
           .json()
-          .then((json) => avisar({ tipo: "capturou", carga: { ...descricao, json } }))
+          .then((json) => anunciarCaptura({ ...descricao, json }))
           .catch(() => {});
       }
     } catch {
@@ -101,15 +111,12 @@
         if (pareceFeed(this.__acervo?.url)) {
           this.addEventListener("load", () => {
             try {
-              avisar({
-                tipo: "capturou",
-                carga: {
-                  url: this.__acervo.url,
-                  metodo: this.__acervo.metodo,
-                  headers: {},
-                  corpo: corpo != null ? String(corpo) : null,
-                  json: JSON.parse(this.responseText),
-                },
+              anunciarCaptura({
+                url: this.__acervo.url,
+                metodo: this.__acervo.metodo,
+                headers: {},
+                corpo: corpo != null ? String(corpo) : null,
+                json: JSON.parse(this.responseText),
               });
             } catch {}
           });
@@ -126,7 +133,14 @@
     // janela que postou; null só acontece em ambiente de teste, e aceitá-lo
     // não abre brecha nenhuma em produção.
     if (evento.source && evento.source !== window) return;
-    if (dados?.fonte !== FONTE_CONTEUDO || dados?.tipo !== "paginar") return;
+    if (dados?.fonte !== FONTE_CONTEUDO) return;
+
+    if (dados.tipo === "pedirUltimaCaptura") {
+      if (ultimaCaptura) avisar({ tipo: "capturou", carga: ultimaCaptura });
+      return;
+    }
+
+    if (dados.tipo !== "paginar") return;
 
     try {
       const resposta = await fetchOriginal(dados.url, {
