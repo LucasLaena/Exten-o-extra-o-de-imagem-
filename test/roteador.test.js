@@ -36,27 +36,6 @@ describe("abrirAcervo", () => {
 });
 
 describe("aoReceberMensagem", () => {
-  it("encaminha a captura do hook para a aba do Acervo", async () => {
-    const api = apiFalsa();
-    api.tabs.query.mockResolvedValue([{ id: 42 }]);
-    const r = criarRoteador(api);
-    await r.aoReceberMensagem(
-      { tipo: "capturou", carga: { url: "u" } },
-      { tab: { id: 9 } },
-    );
-    expect(api.tabs.sendMessage).toHaveBeenCalledWith(42, expect.objectContaining({
-      tipo: "capturou",
-      abaDeOrigem: 9,
-    }));
-  });
-
-  it("encaminha o pedido de paginação para a aba do perfil", async () => {
-    const api = apiFalsa();
-    const r = criarRoteador(api);
-    await r.aoReceberMensagem({ tipo: "paginar", abaAlvo: 9, url: "u", init: {} }, {});
-    expect(api.tabs.sendMessage).toHaveBeenCalledWith(9, expect.objectContaining({ tipo: "paginar" }));
-  });
-
   it("abre o Acervo quando o content script pede", async () => {
     const api = apiFalsa();
     const r = criarRoteador(api);
@@ -69,13 +48,4 @@ describe("aoReceberMensagem", () => {
     await expect(r.aoReceberMensagem({ tipo: "sei-la" }, {})).resolves.toBeUndefined();
   });
 
-  it("não quebra quando a aba do Acervo sumiu no meio do caminho", async () => {
-    const api = apiFalsa();
-    api.tabs.query.mockResolvedValue([{ id: 42 }]);
-    api.tabs.sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
-    const r = criarRoteador(api);
-    await expect(
-      r.aoReceberMensagem({ tipo: "capturou", carga: {} }, { tab: { id: 9 } }),
-    ).resolves.toBeUndefined();
-  });
 });

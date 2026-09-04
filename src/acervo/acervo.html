@@ -10,10 +10,26 @@
     <header class="topo">
       <div>
         <h1>Acervo <span class="versao" id="versao"></span></h1>
-        <p class="perfil" id="perfil">—</p>
+        <p class="perfil" id="perfil">nenhum perfil escolhido</p>
       </div>
       <p class="estado" id="estado">Carregando…</p>
     </header>
+
+    <section class="alvo" aria-label="Perfil">
+      <label class="campo cresce">
+        <span>Perfil</span>
+        <input
+          type="text"
+          id="urlPerfil"
+          placeholder="https://www.instagram.com/perfil/  ou  @perfil"
+          spellcheck="false"
+          autocomplete="off"
+        />
+      </label>
+      <button id="indexar" type="button" class="primario">Indexar perfil</button>
+      <button id="cancelar" type="button" class="secundario" hidden>Cancelar</button>
+      <button id="diagnostico" type="button" class="secundario">Diagnóstico</button>
+    </section>
 
     <section class="barra" aria-label="Filtros e ordenação">
       <label class="campo">
@@ -57,10 +73,8 @@
       </label>
 
       <div class="acoes">
-        <button id="indexar" type="button" class="secundario">Indexar perfil</button>
         <button id="escolherPasta" type="button" class="secundario">Escolher pasta</button>
         <button id="baixar" type="button" class="primario">Baixar</button>
-        <button id="cancelar" type="button" class="secundario" hidden>Cancelar</button>
       </div>
     </section>
 
@@ -72,8 +86,19 @@
 
     <main id="grade" class="grade" role="listbox" aria-label="Publicações"></main>
 
-    <aside class="progresso" id="progresso" hidden>
-      <h2>Baixando</h2>
+    <aside class="painel" id="diagPainel" hidden>
+      <div class="painel-topo">
+        <h2>Diagnóstico</h2>
+        <button class="fechar-painel" id="fecharDiag" type="button" aria-label="Fechar">×</button>
+      </div>
+      <ol id="diagLista"></ol>
+    </aside>
+
+    <aside class="painel" id="progresso" hidden>
+      <div class="painel-topo">
+        <h2>Baixando</h2>
+        <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Fechar">×</button>
+      </div>
       <p id="progressoTexto"></p>
       <ol id="partes"></ol>
     </aside>

@@ -1,35 +1,31 @@
 import { abrirAcervo as abrirBanco } from "../core/db.js";
-import { adaptadorPorId } from "../adapters/index.js";
 import { resolverSelecao } from "../core/selection.js";
-import { criarIndexador } from "./indexador.js";
 import { criarBaixador } from "./baixador.js";
 import { criarGrade } from "./grid.js";
-import { criarTransporteViaHook } from "./transporte.js";
+import { criarExecutor } from "./executor.js";
+import { criarColetor } from "./coletor.js";
+import { resolverAlvo } from "./alvo.js";
+import { rodarDiagnostico } from "./diagnostico.js";
 import { estadoDaTela } from "./mensagens.js";
 import {
   escolherPasta, reautorizar, criarDestinoEmPasta, criarDestinoEmMemoria,
   temFileSystemAccess,
 } from "./destino.js";
 
-const params = new URLSearchParams(location.search);
-const profileKey = params.get("perfil");
-const abaAlvo = params.get("aba") ? Number(params.get("aba")) : null;
-const acao = params.get("acao");
-
 const $ = (id) => document.getElementById(id);
-const numero = (n) => new Intl.NumberFormat("pt-BR").format(n);
+const numero = (n) => new Intl.NumberFormat("pt-BR").format(n ?? 0);
 const dizer = (texto) => { $("estado").textContent = texto; };
 
-const PREFIXO_PARA_ID = { ig: "instagram", tt: "tiktok" };
-
 let repo;
-let adaptador;
-let posts = [];
+let executor;
 let grade;
+let alvo = null;
+let posts = [];
 let cancelador = null;
 let pastaDestino = null;
 
-/** Ordena e filtra segundo os controles, e devolve o recorte pedido. */
+// --- grade e estado da tela -------------------------------------------------
+
 function selecaoAtual(baixados) {
   const marcadas = grade.selecionadas();
   return resolverSelecao({
@@ -43,55 +39,6 @@ function selecaoAtual(baixados) {
     pularBaixados: $("pularBaixados").checked,
     baixados,
   });
-}
-
-async function redesenhar() {
-  const baixados = await repo.baixados.chavesDoPerfil(profileKey);
-  const { posicoes, total } = selecaoAtual(baixados);
-
-  const ordenados = posts
-    .map((p) => ({ ...p, posicao: posicoes.get(p.key) }))
-    .filter((p) => p.posicao != null)
-    .sort((a, b) => a.posicao - b.posicao);
-
-  grade.definirItens(
-    ordenados.map((p) => ({
-      chave: p.key,
-      posicao: p.posicao,
-      post: p,
-      jaBaixado: baixados.has(p.key),
-    })),
-  );
-
-  const perfil = await repo.perfis.obter(profileKey);
-  const tela = estadoDaTela({
-    total,
-    baixados: baixados.size,
-    temAssinatura: Boolean(perfil?.assinatura),
-    temAba: abaAlvo != null,
-  });
-
-  dizer(tela.resumo);
-  mostrarVazio(tela.vazio);
-}
-
-/** Uma grade vazia sem explicação é o pior estado possível. */
-function mostrarVazio(vazio) {
-  const caixa = $("vazio");
-  caixa.hidden = !vazio;
-  $("grade").hidden = Boolean(vazio);
-  if (!vazio) return;
-
-  $("vazioTitulo").textContent = vazio.titulo;
-  $("vazioPorque").textContent = vazio.porque;
-
-  const passos = $("vazioPassos");
-  passos.innerHTML = "";
-  for (const passo of vazio.passos) {
-    const li = document.createElement("li");
-    li.textContent = passo;
-    passos.append(li);
-  }
 }
 
 function renderizarItem(item, el) {
@@ -119,67 +66,175 @@ function renderizarItem(item, el) {
   el.append(img, posicao, metricas, seq);
 }
 
-async function indexar() {
-  if (abaAlvo == null) {
-    dizer(
-      "Não sei de qual aba indexar. Volte para a aba do perfil e abra o " +
-      "Acervo pelo botão que fica no canto inferior direito da página.",
-    );
+/** Uma grade vazia sem explicação é o pior estado possível. */
+function mostrarVazio(vazio) {
+  $("vazio").hidden = !vazio;
+  $("grade").hidden = Boolean(vazio);
+  if (!vazio) return;
+
+  $("vazioTitulo").textContent = vazio.titulo;
+  $("vazioPorque").textContent = vazio.porque ?? "";
+
+  const passos = $("vazioPassos");
+  passos.innerHTML = "";
+  for (const passo of vazio.passos) {
+    const li = document.createElement("li");
+    li.textContent = passo;
+    passos.append(li);
+  }
+}
+
+async function redesenhar() {
+  if (!alvo?.ok) {
+    grade.definirItens([]);
+    dizer("Nenhum perfil escolhido");
+    mostrarVazio({
+      titulo: "Escolha um perfil",
+      passos: [
+        "Cole o endereço do perfil no campo acima, ou só o @ dele.",
+        "Clique em Indexar perfil.",
+      ],
+      porque:
+        "O Acervo abre o perfil numa aba e cataloga a partir de lá, usando a sua " +
+        "sessão já logada no navegador. Nenhuma senha passa por aqui.",
+    });
     return;
   }
 
-  const perfil = await repo.perfis.obter(profileKey);
-  if (!perfil?.assinatura) {
-    dizer(
-      "Ainda não vi o feed deste perfil. Volte para a aba do perfil, " +
-      "recarregue com F5, role a grade por alguns segundos e tente de novo.",
-    );
-    return;
+  const baixados = await repo.baixados.chavesDoPerfil(alvo.profileKey);
+  const { posicoes, total } = selecaoAtual(baixados);
+
+  const ordenados = posts
+    .map((p) => ({ ...p, posicao: posicoes.get(p.key) }))
+    .filter((p) => p.posicao != null)
+    .sort((a, b) => a.posicao - b.posicao);
+
+  grade.definirItens(
+    ordenados.map((p) => ({
+      chave: p.key,
+      posicao: p.posicao,
+      post: p,
+      jaBaixado: baixados.has(p.key),
+    })),
+  );
+
+  const tela = estadoDaTela({
+    total,
+    baixados: baixados.size,
+    // Nesta arquitetura não há assinatura a aprender: basta conhecer o perfil.
+    temAssinatura: true,
+    temAba: true,
+  });
+  dizer(tela.resumo);
+  mostrarVazio(total === 0 ? tela.vazio : null);
+}
+
+// --- perfil alvo ------------------------------------------------------------
+
+async function trocarAlvo(entrada, { redesenha = true } = {}) {
+  const resolvido = resolverAlvo(entrada);
+
+  if (!resolvido.ok) {
+    alvo = null;
+    posts = [];
+    $("perfil").textContent = "nenhum perfil escolhido";
+    dizer(resolvido.erro);
+    if (redesenha) await redesenhar();
+    return false;
   }
+
+  alvo = resolvido;
+  $("perfil").textContent = `${alvo.profileKey} · ${alvo.urlDoPerfil}`;
+  posts = await repo.posts.listarPorPerfil(alvo.profileKey);
+  if (redesenha) await redesenhar();
+  return true;
+}
+
+// --- ações ------------------------------------------------------------------
+
+async function indexar() {
+  if (!(await trocarAlvo($("urlPerfil").value, { redesenha: false }))) return;
 
   const controle = new AbortController();
   cancelador = controle;
   $("cancelar").hidden = false;
+  $("indexar").disabled = true;
 
-  const indexador = criarIndexador({
-    adaptador,
+  const coletor = criarColetor({
+    executor,
     repo,
-    transporte: criarTransporteViaHook({
-      abaAlvo,
-      enviar: (msg) => chrome.runtime.sendMessage(msg),
-    }),
     aoProgresso: ({ indexados, paginas }) =>
-      dizer(`Indexando… ${numero(indexados)} publicações em ${paginas} páginas`),
+      dizer(`Indexando… ${numero(indexados)} publicações, ${paginas} páginas`),
   });
 
   try {
-    const r = await indexador.indexar({
-      profileKey,
-      assinatura: perfil.assinatura,
-      cursor: perfil.cursor ?? null,
-      seqInicial: await repo.posts.maiorSeq(profileKey),
+    dizer("Abrindo a aba do perfil…");
+    const r = await coletor.coletar({
+      adaptador: alvo.adaptador,
+      handle: alvo.handle,
+      profileKey: alvo.profileKey,
+      urlDoPerfil: alvo.urlDoPerfil,
+      seqInicial: await repo.posts.maiorSeq(alvo.profileKey),
       sinal: controle.signal,
     });
     dizer(
       r.completo
         ? `Catálogo completo: ${numero(r.indexados)} publicações.`
-        : `Parou em ${numero(r.indexados)}. Clique em Indexar para continuar de onde parou.`,
+        : `Parou em ${numero(r.indexados)}. Clique em Indexar perfil para continuar.`,
     );
   } catch (erro) {
-    dizer(
-      `Indexação interrompida: ${erro.message}. ` +
-      "Espere alguns minutos antes de tentar de novo.",
-    );
+    dizer(erro.message);
+    mostrarVazio({
+      titulo: "A indexação parou",
+      passos: [erro.message, "Clique em Diagnóstico para ver qual passo falhou."],
+      porque: String(erro.causa?.message ?? ""),
+    });
   } finally {
     cancelador = null;
     $("cancelar").hidden = true;
-    posts = await repo.posts.listarPorPerfil(profileKey);
+    $("indexar").disabled = false;
+    if (alvo?.ok) posts = await repo.posts.listarPorPerfil(alvo.profileKey);
     await redesenhar();
   }
 }
 
+async function diagnosticar() {
+  const lista = $("diagLista");
+  $("diagPainel").hidden = false;
+  lista.innerHTML = "";
+
+  const testando = document.createElement("li");
+  testando.textContent = "Testando…";
+  lista.append(testando);
+
+  const passos = await rodarDiagnostico({
+    executor,
+    repo,
+    alvo: resolverAlvo($("urlPerfil").value),
+  });
+
+  lista.innerHTML = "";
+  for (const passo of passos) {
+    const li = document.createElement("li");
+    li.className = `passo ${passo.estado}`;
+
+    const nome = document.createElement("strong");
+    nome.textContent = passo.nome;
+    const detalhe = document.createElement("span");
+    detalhe.textContent = passo.detalhe;
+
+    li.append(nome, detalhe);
+    lista.append(li);
+  }
+}
+
 async function baixar() {
-  const baixados = await repo.baixados.chavesDoPerfil(profileKey);
+  if (!alvo?.ok) {
+    dizer("Escolha um perfil antes de baixar.");
+    return;
+  }
+
+  const baixados = await repo.baixados.chavesDoPerfil(alvo.profileKey);
   const { selecionados, posicoes } = selecaoAtual(baixados);
   if (selecionados.length === 0) {
     dizer("Nada selecionado para baixar.");
@@ -187,8 +242,7 @@ async function baixar() {
   }
 
   const carimbo = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "");
-  const handle = profileKey.split("@")[1];
-  const segmentos = ["Acervo", adaptador.id, `@${handle}`, carimbo];
+  const segmentos = ["Acervo", alvo.adaptador.id, `@${alvo.handle}`, carimbo];
 
   const destino = pastaDestino
     ? await criarDestinoEmPasta(pastaDestino, segmentos)
@@ -208,7 +262,7 @@ async function baixar() {
   $("partes").innerHTML = "";
 
   const baixador = criarBaixador({
-    adaptador,
+    adaptador: alvo.adaptador,
     repo,
     buscarMidia: async (url, sinal) => {
       const resposta = await fetch(url, { signal: sinal });
@@ -231,8 +285,8 @@ async function baixar() {
   try {
     const r = await baixador.baixar({
       jobId: `job-${Date.now()}`,
-      perfil: handle,
-      profileKey,
+      perfil: alvo.handle,
+      profileKey: alvo.profileKey,
       posts: selecionados,
       posicoes,
       opcoes: {
@@ -244,8 +298,7 @@ async function baixar() {
     });
     dizer(
       `Pronto: ${r.partes.length} partes, ${numero(r.arquivos)} arquivos` +
-      (r.falhas.length ? `, ${r.falhas.length} falhas (veja relatorio.json)` : "") +
-      ".",
+      (r.falhas.length ? `, ${r.falhas.length} falhas (veja relatorio.json)` : "") + ".",
     );
   } catch (erro) {
     dizer(`Download interrompido: ${erro.message}`);
@@ -256,22 +309,15 @@ async function baixar() {
   }
 }
 
+// --- início -----------------------------------------------------------------
+
 async function iniciar() {
-  // Recarregar a extensão não recarrega uma aba chrome-extension:// já aberta.
-  // Mostrar a versão torna óbvio quando esta aba está rodando código velho.
   const versao = chrome.runtime.getManifest().version;
-  $("versao").textContent = "v" + versao;
+  $("versao").textContent = `v${versao}`;
   console.log("[Acervo] aba v" + versao);
 
   repo = await abrirBanco();
-
-  if (!profileKey) {
-    dizer("Abra um perfil do Instagram ou do TikTok e clique no botão do Acervo.");
-    return;
-  }
-
-  adaptador = adaptadorPorId(PREFIXO_PARA_ID[profileKey.split(":")[0]]);
-  $("perfil").textContent = profileKey;
+  executor = criarExecutor(chrome);
 
   grade = criarGrade({
     container: $("grade"),
@@ -284,23 +330,33 @@ async function iniciar() {
     },
   });
 
-  // Recupera a pasta escolhida numa sessão anterior, se o usuário reautorizar.
-  // Só consulta. Pedir permissão exige gesto do usuário e lançaria aqui,
-  // derrubando a inicialização inteira em silêncio.
+  // Só consulta: pedir permissão exige gesto do usuário e lançaria aqui.
   const guardada = await repo.handles.obter("pastaDestino");
-  if (guardada && (await reautorizar(guardada, { pedir: false }))) {
-    pastaDestino = guardada;
-  }
+  if (guardada && (await reautorizar(guardada, { pedir: false }))) pastaDestino = guardada;
 
-  posts = await repo.posts.listarPorPerfil(profileKey);
-  await redesenhar();
+  // O perfil pode vir da URL (clique no botão da página) ou ser digitado.
+  const params = new URLSearchParams(location.search);
+  const inicial = params.get("perfil");
+  if (inicial) {
+    $("urlPerfil").value = inicial;
+    await trocarAlvo(inicial);
+  } else {
+    await redesenhar();
+  }
 
   for (const id of ["filtro", "ordenacao", "de", "ate", "pularBaixados"]) {
     $(id).addEventListener("change", redesenhar);
   }
+  $("urlPerfil").addEventListener("change", () => trocarAlvo($("urlPerfil").value));
+  $("urlPerfil").addEventListener("keydown", (evento) => {
+    if (evento.key === "Enter") indexar();
+  });
   $("indexar").addEventListener("click", indexar);
+  $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);
   $("cancelar").addEventListener("click", () => cancelador?.abort());
+  $("fecharDiag").addEventListener("click", () => { $("diagPainel").hidden = true; });
+  $("fecharProgresso").addEventListener("click", () => { $("progresso").hidden = true; });
 
   $("escolherPasta").addEventListener("click", async () => {
     if (!temFileSystemAccess()) {
@@ -308,12 +364,6 @@ async function iniciar() {
       return;
     }
     try {
-      const guardadaAgora = await repo.handles.obter("pastaDestino");
-      if (guardadaAgora && (await reautorizar(guardadaAgora, { pedir: true }))) {
-        pastaDestino = guardadaAgora;
-        dizer("Pasta anterior reautorizada.");
-        return;
-      }
       pastaDestino = await escolherPasta();
       await repo.handles.salvar("pastaDestino", pastaDestino);
       dizer("Pasta de destino guardada.");
@@ -322,17 +372,7 @@ async function iniciar() {
     }
   });
 
-  chrome.runtime.onMessage.addListener((mensagem) => {
-    // Quem grava a assinatura é o service worker, que a higieniza antes: a
-    // carga crua carrega o header cookie e não pode ir para o banco.
-    if (mensagem?.tipo === "capturou") {
-      // O service worker acabou de gravar a assinatura; a tela precisa refletir
-      // que agora dá para indexar.
-      redesenhar();
-    }
-  });
-
-  if (acao === "indexar") indexar();
+  if (params.get("acao") === "indexar") indexar();
 }
 
 iniciar().catch((erro) => {

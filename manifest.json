@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Acervo",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Cataloga perfis do Instagram e TikTok e baixa publicacoes em lote.",
-  "permissions": ["storage", "downloads", "declarativeNetRequest", "tabs"],
+  "permissions": ["storage", "downloads", "declarativeNetRequest", "tabs", "scripting"],
   "host_permissions": [
     "*://*.instagram.com/*",
     "*://*.cdninstagram.com/*",
@@ -17,7 +17,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.instagram.com/*", "*://*.tiktok.com/*"],
-      "js": ["src/page/hook.js"],
+      "js": ["src/page/captura.js"],
       "world": "MAIN",
       "run_at": "document_start"
     },

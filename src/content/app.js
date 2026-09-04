@@ -2,9 +2,6 @@ import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
 
-const FONTE_HOOK = "acervo/pagina";
-const FONTE_CONTEUDO = "acervo/conteudo";
-
 /**
  * As duas plataformas são SPA: trocar de página não recarrega nada. O Chrome
  * não emite evento para pushState, então embrulhamos o history — e devolvemos
@@ -45,79 +42,15 @@ export function observarNavegacao(aoMudar) {
 }
 
 /**
- * Qual perfil está aberto agora. A captura do hook não sabe de quem é o feed
- * que passou; quem sabe é o content script, que acompanha a navegação.
+ * O content script faz uma coisa só: mostrar o botão e abrir o Acervo já com o
+ * perfil certo. Toda a coleta acontece na aba do Acervo, que executa código
+ * aqui dentro via chrome.scripting — sem a cadeia de mensagens que falhava em
+ * silêncio.
  */
-let perfilAtual = null;
-
-/**
- * A ponte entre o mundo MAIN (hook) e o service worker. O content script é o
- * único que enxerga os dois lados: o hook fala por postMessage, a extensão fala
- * por chrome.runtime.
- */
-export function instalarPonte({ chromeApi = chrome, janela = window } = {}) {
-  const aguardando = new Map();
-
-  const aoMensagemDaPagina = (evento) => {
-    if (evento.source && evento.source !== janela) return;
-    const dados = evento.data;
-    if (dados?.fonte !== FONTE_HOOK) return;
-
-    if (dados.tipo === "capturou") {
-      chromeApi.runtime.sendMessage({
-        tipo: "capturou",
-        profileKey: perfilAtual,
-        carga: dados.carga,
-      });
-      return;
-    }
-
-    if (dados.tipo === "pagina") {
-      const responder = aguardando.get(dados.id);
-      if (!responder) return; // resposta de outro pedido, ou já expirado
-      aguardando.delete(dados.id);
-      responder({ ok: dados.ok, status: dados.status, json: dados.json, erro: dados.erro });
-    }
-  };
-
-  const aoMensagemDaExtensao = (mensagem, _remetente, responder) => {
-    if (mensagem?.tipo !== "paginar") return false;
-    aguardando.set(mensagem.id, responder);
-    janela.postMessage(
-      {
-        fonte: FONTE_CONTEUDO,
-        tipo: "paginar",
-        id: mensagem.id,
-        url: mensagem.url,
-        init: mensagem.init,
-      },
-      "*",
-    );
-    return true; // canal aberto: a resposta chega quando o hook devolver
-  };
-
-  janela.addEventListener("message", aoMensagemDaPagina);
-  chromeApi.runtime.onMessage.addListener(aoMensagemDaExtensao);
-
-  // O feed já pode ter passado antes de a ponte existir. O hook guarda a
-  // última captura justamente para poder repeti-la agora.
-  janela.postMessage({ fonte: FONTE_CONTEUDO, tipo: "pedirUltimaCaptura" }, "*");
-
-  return () => {
-    janela.removeEventListener("message", aoMensagemDaPagina);
-    chromeApi.runtime.onMessage.removeListener(aoMensagemDaExtensao);
-    aguardando.clear();
-  };
-}
-
 export function iniciar() {
-  // observarNavegacao primeiro: ela define perfilAtual de forma síncrona, e a
-  // ponte pode receber uma captura repetida no instante em que sobe. Na ordem
-  // inversa, essa captura chegaria sem saber de que perfil é.
   observarNavegacao((url) => {
     const adaptador = adaptadorDaUrl(url);
     if (!adaptador) {
-      perfilAtual = null;
       fecharModal();
       desmontarBotao();
       return;
@@ -125,7 +58,6 @@ export function iniciar() {
 
     const handle = adaptador.handleDaUrl(url);
     const profileKey = chaveDePerfil(adaptador, handle);
-    perfilAtual = profileKey;
 
     montarBotao({
       adaptador,
@@ -155,6 +87,4 @@ export function iniciar() {
         }),
     });
   });
-
-  instalarPonte();
 }

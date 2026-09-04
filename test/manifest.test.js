@@ -10,7 +10,7 @@ describe("manifest", () => {
 
   it("pede exatamente as permissões que o Acervo usa", () => {
     expect(new Set(manifest.permissions)).toEqual(
-      new Set(["storage", "downloads", "declarativeNetRequest", "tabs"]),
+      new Set(["storage", "downloads", "declarativeNetRequest", "tabs", "scripting"]),
     );
   });
 
@@ -34,7 +34,7 @@ describe("manifest", () => {
   it("injeta o hook em document_start, antes do app rodar", () => {
     const hook = manifest.content_scripts.find((c) => c.world === "MAIN");
     expect(hook.run_at).toBe("document_start");
-    expect(hook.js).toEqual(["src/page/hook.js"]);
+    expect(hook.js).toEqual(["src/page/captura.js"]);
   });
 
   it("expõe a aba do Acervo como página da extensão", () => {
