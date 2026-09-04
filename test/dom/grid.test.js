@@ -78,6 +78,62 @@ describe("virtualização", () => {
   });
 });
 
+describe("densidade", () => {
+  it("troca quantas publicações cabem por linha", () => {
+    const g = montar({ colunas: 3, alturaLinha: undefined });
+    g.definirItens(itens(60));
+    expect(g.colunas()).toBe(3);
+
+    g.definirColunas(10);
+    expect(g.colunas()).toBe(10);
+    expect(container.querySelector(".palco").style.gridTemplateColumns)
+      .toBe("repeat(10, 1fr)");
+  });
+
+  it("mais colunas cabem mais publicações na tela", () => {
+    const g = montar({ colunas: 3, alturaLinha: undefined });
+    g.definirItens(itens(300));
+    const com3 = desenhados().length;
+
+    g.definirColunas(10);
+    const com10 = desenhados().length;
+
+    // Itens menores significam linhas mais baixas e mais itens visíveis.
+    expect(com10).toBeGreaterThan(com3);
+  });
+
+  it("recalcula a altura reservada, senão a rolagem mente", () => {
+    const g = montar({ colunas: 3, alturaLinha: undefined });
+    g.definirItens(itens(300));
+    const alturaCom3 = container.querySelector(".espacador").style.height;
+
+    g.definirColunas(10);
+    const alturaCom10 = container.querySelector(".espacador").style.height;
+
+    expect(alturaCom10).not.toBe(alturaCom3);
+    expect(parseFloat(alturaCom10)).toBeLessThan(parseFloat(alturaCom3));
+  });
+
+  it("não perde a seleção ao mudar a densidade", () => {
+    const g = montar({ colunas: 3, alturaLinha: undefined });
+    g.definirItens(itens(50));
+    g.marcarFaixa(1, 5);
+
+    g.definirColunas(10);
+
+    expect(g.selecionadas().size).toBe(5);
+  });
+
+  it("recusa densidade absurda em vez de dividir por zero", () => {
+    const g = montar({ colunas: 3, alturaLinha: undefined });
+    g.definirItens(itens(10));
+    g.definirColunas(0);
+    expect(g.colunas()).toBe(1);
+    g.definirColunas(-4);
+    expect(g.colunas()).toBe(1);
+  });
+});
+
 describe("seleção", () => {
   it("marca e desmarca um item", () => {
     const g = montar();

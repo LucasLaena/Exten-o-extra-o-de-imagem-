@@ -170,6 +170,37 @@ export async function sondarFeed(userId, appId, quantas) {
   }
 }
 
+/**
+ * Busca os itens de um destaque, de dentro da aba do Instagram.
+ *
+ * O endpoint aceita a coleção inteira numa chamada, então destaque não precisa
+ * de paginação nem de rolagem: entrou, buscou, acabou.
+ */
+export async function buscarDestaque(idDestaque, appId) {
+  const url =
+    "https://www.instagram.com/api/v1/feed/reels_media/?reel_ids=highlight%3A" +
+    encodeURIComponent(idDestaque);
+  try {
+    const resposta = await fetch(url, {
+      credentials: "include",
+      headers: { "x-ig-app-id": appId, "x-requested-with": "XMLHttpRequest" },
+    });
+
+    const texto = await resposta.text();
+    let json = null;
+    try {
+      json = JSON.parse(texto);
+    } catch {}
+
+    if (!resposta.ok || !json) {
+      return { ok: false, status: resposta.status, erro: "resposta não era JSON" };
+    }
+    return { ok: true, status: resposta.status, json: json };
+  } catch (erro) {
+    return { ok: false, status: 0, erro: String(erro && erro.message ? erro.message : erro) };
+  }
+}
+
 export const ID_AVISO = "__acervo_aviso__";
 
 /**

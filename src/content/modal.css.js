@@ -26,7 +26,7 @@ export function cssDoModal(plataforma) {
       overflow-y: auto;
       background: var(--acervo-osso);
       border: 1px solid var(--acervo-tinta);
-      border-top: 4px solid ${FILETE[plataforma]};
+      border-top: 4px solid ${FILETE[plataforma] ?? FILETE.instagram};
       border-radius: 2px;
       box-shadow: 0 24px 48px rgba(28, 48, 56, .28);
       animation: entrar .14s ease-out;

@@ -5,6 +5,7 @@ import { criarGrade } from "./grid.js";
 import { criarExecutor } from "./executor.js";
 import { criarColetor } from "./coletor.js";
 import { resolverAlvo } from "./alvo.js";
+import { destaques } from "../adapters/destaques.js";
 import { rodarDiagnostico } from "./diagnostico.js";
 import { tetoDaIndexacao, porQueIndexaTudo } from "./escopo.js";
 import { estadoDaTela } from "./mensagens.js";
@@ -283,6 +284,65 @@ async function indexar({ eDepoisBaixar = false } = {}) {
   await baixar();
 }
 
+/**
+ * Baixa um destaque inteiro. É deliberadamente mais curto que o caminho do
+ * feed: a coleção é pequena e fechada, então não há faixa, ordem nem escolha.
+ */
+async function baixarDestaque(idDestaque, urlDoDestaque) {
+  const controle = new AbortController();
+  cancelador = controle;
+  $("cancelar").hidden = false;
+  $("indexar").disabled = true;
+
+  const coletor = criarColetor({
+    executor,
+    repo,
+    aoProgresso: ({ indexados }) => dizer(`Lendo o destaque… ${numero(indexados)} itens`),
+  });
+
+  try {
+    dizer("Abrindo o destaque…");
+    const r = await coletor.coletarDestaque({
+      adaptador: destaques,
+      idDestaque,
+      profileKey: alvo?.profileKey ?? "ig:@destaque",
+      urlDoPerfil: urlDoDestaque,
+      sinal: controle.signal,
+    });
+
+    alvo = {
+      ok: true,
+      adaptador: destaques,
+      handle: r.titulo || `destaque-${idDestaque}`,
+      profileKey: r.profileKey,
+      urlDoPerfil: urlDoDestaque,
+    };
+    $("perfil").textContent = `Destaque "${r.titulo}" · ${numero(r.indexados)} itens`;
+    $("urlPerfil").value = urlDoDestaque;
+
+    posts = await repo.posts.listarPorPerfil(r.profileKey);
+    $("de").value = "1";
+    $("ate").value = String(Math.max(1, posts.length));
+    await redesenhar();
+
+    dizer(`Destaque "${r.titulo}": ${numero(r.indexados)} itens. Baixando…`);
+  } catch (erro) {
+    dizer(erro.message);
+    mostrarVazio({
+      titulo: "Não consegui ler este destaque",
+      passos: [erro.message, "Abra o destaque na aba do Instagram e tente de novo."],
+      porque: "",
+    });
+    return;
+  } finally {
+    cancelador = null;
+    $("cancelar").hidden = true;
+    $("indexar").disabled = false;
+  }
+
+  if (posts.length > 0) await baixar();
+}
+
 async function diagnosticar() {
   const lista = $("diagLista");
   $("diagPainel").hidden = false;
@@ -460,8 +520,7 @@ async function iniciar() {
 
   grade = criarGrade({
     container: $("grade"),
-    alturaLinha: 260,
-    colunas: 5,
+    colunas: Number($("porLinha").value) || 6,
     renderizar: renderizarItem,
     aoMudarSelecao: (marcadas) => {
       $("baixar").textContent =
@@ -493,6 +552,11 @@ async function iniciar() {
   $("urlPerfil").addEventListener("keydown", (evento) => {
     if (evento.key === "Enter") indexar();
   });
+  $("porLinha").addEventListener("change", () => {
+    grade.definirColunas(Number($("porLinha").value) || 6);
+  });
+  addEventListener("resize", () => grade.definirColunas(grade.colunas()));
+
   $("indexar").addEventListener("click", indexar);
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);
@@ -524,6 +588,9 @@ async function iniciar() {
   const acao = params.get("acao");
   if (acao === "indexar") indexar();
   if (acao === "baixar") indexar({ eDepoisBaixar: true });
+  if (acao === "destaque" && pedido?.destaque) {
+    baixarDestaque(pedido.destaque, pedido.urlDoDestaque);
+  }
 }
 
 iniciar().catch((erro) => {

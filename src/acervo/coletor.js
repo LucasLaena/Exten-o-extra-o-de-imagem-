@@ -8,6 +8,7 @@ import {
   sondarInstagram,
   rolarUmPouco,
   drenarCapturas,
+  buscarDestaque,
   mostrarAviso,
   esconderAviso,
 } from "./sondas.js";
@@ -411,5 +412,59 @@ export function criarColetor({
     };
   }
 
-  return { coletar };
+  /**
+   * Um destaque baixa inteiro, numa chamada só. Sem faixa, sem ordenação e sem
+   * rolagem: a coleção é pequena e fechada, e tratá-la como o feed seria
+   * complicar o que é simples.
+   */
+  async function coletarDestaque({ adaptador, idDestaque, profileKey, urlDoPerfil, sinal }) {
+    const aba = await executor.acharOuAbrirAba(urlDoPerfil);
+
+    try {
+      const resposta = await executor.rodar(aba.abaId, buscarDestaque, [idDestaque, IG_APP_ID]);
+
+      if (!resposta?.ok) {
+        throw new ErroDeColeta(
+          `Não consegui ler este destaque (o Instagram respondeu ${resposta?.status ?? 0}). ` +
+          "Abra o destaque na aba do Instagram e tente de novo.",
+        );
+      }
+
+      const { titulo, itens } = adaptador.parsearDestaque(resposta.json, idDestaque);
+      if (itens.length === 0) {
+        throw new ErroDeColeta("Este destaque não tem nada que o Acervo consiga baixar.");
+      }
+
+      const chaveDoDestaque = `${profileKey}#destaque:${idDestaque}`;
+      const lote = itens.map((bruto, i) => ({
+        ...bruto,
+        key: `${chaveDoDestaque}:${bruto.id}`,
+        profileKey: chaveDoDestaque,
+        seq: i + 1,
+      }));
+
+      await repo.posts.salvarLote(lote);
+      await repo.perfis.salvar({
+        key: chaveDoDestaque,
+        titulo,
+        totalIndexado: lote.length,
+        completo: true,
+        indexadoEm: Date.now(),
+      });
+
+      aoProgresso?.({ indexados: lote.length, paginas: 1, total: lote.length });
+
+      return {
+        profileKey: chaveDoDestaque,
+        titulo,
+        indexados: lote.length,
+        completo: true,
+        paginas: 1,
+      };
+    } finally {
+      await executor.fecharSeCriada(aba);
+    }
+  }
+
+  return { coletar, coletarDestaque };
 }

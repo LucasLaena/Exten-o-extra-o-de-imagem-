@@ -321,19 +321,22 @@ button:focus-visible {
   padding: 0 24px 24px;
 }
 
+/* As colunas vêm do JS: a virtualização precisa saber a altura da linha, e
+   ela depende de quantas cabem. Aqui só o que não compete com isso. */
 .grade .palco {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   padding-top: 14px;
+  align-content: start;
 }
 
 .item {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 3px;
+  padding: 5px;
+  overflow: hidden;
   border: 1px solid var(--linha);
   border-radius: 2px;
   background: var(--papel);
@@ -358,14 +361,17 @@ button:focus-visible {
 .item .posicao {
   font: var(--numeros);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .item .metricas,
 .item .seq {
   font: var(--numeros);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--grafite);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 

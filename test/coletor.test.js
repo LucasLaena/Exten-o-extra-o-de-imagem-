@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { criarColetor } from "../src/acervo/coletor.js";
 import { instagram } from "../src/adapters/instagram.js";
 import { tiktok } from "../src/adapters/tiktok.js";
+import { destaques } from "../src/adapters/destaques.js";
 import * as sondas from "../src/acervo/sondas.js";
 
 function repoFalso() {
@@ -646,6 +647,107 @@ describe("via rápida primeiro", () => {
 
     expect(avisos.join(" ")).toMatch(/mais lento/i);
     expect(avisos.join(" ")).toMatch(/faltam ~499/);
+  });
+});
+
+describe("destaque", () => {
+  const respostaDoDestaque = {
+    reels: {
+      "highlight:777": {
+        title: "Viagens",
+        items: [
+          { pk: "a", media_type: 1, taken_at: 1,
+            image_versions2: { candidates: [{ url: "https://cdn.test/a.jpg", width: 1080 }] } },
+          { pk: "b", media_type: 2, taken_at: 2,
+            image_versions2: { candidates: [{ url: "https://cdn.test/capa.jpg", width: 1080 }] },
+            video_versions: [{ url: "https://cdn.test/b.mp4", width: 1080 }] },
+        ],
+      },
+    },
+  };
+
+  it("baixa o destaque inteiro numa chamada, sem rolar nada", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      buscarDestaque: { ok: true, status: 200, json: respostaDoDestaque },
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    const r = await coletor.coletarDestaque({
+      adaptador: destaques,
+      idDestaque: "777",
+      profileKey: "ig:@fulano",
+      urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
+    });
+
+    expect(r.titulo).toBe("Viagens");
+    expect(r.indexados).toBe(2);
+    expect(r.completo).toBe(true);
+    expect(executor.chamadas.some((c) => c.nome === "rolarUmPouco")).toBe(false);
+  });
+
+  it("guarda o destaque numa chave própria, sem misturar com o feed", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      buscarDestaque: { ok: true, status: 200, json: respostaDoDestaque },
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    const r = await coletor.coletarDestaque({
+      adaptador: destaques,
+      idDestaque: "777",
+      profileKey: "ig:@fulano",
+      urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
+    });
+
+    expect(r.profileKey).toBe("ig:@fulano#destaque:777");
+    for (const post of repo.posts.todos()) {
+      expect(post.profileKey).toBe("ig:@fulano#destaque:777");
+      expect(post.destaque).toBe("Viagens");
+    }
+  });
+
+  it("numera os itens na ordem em que aparecem", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      buscarDestaque: { ok: true, status: 200, json: respostaDoDestaque },
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    await coletor.coletarDestaque({
+      adaptador: destaques, idDestaque: "777", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
+    });
+
+    expect(repo.posts.todos().map((p) => p.seq)).toEqual([1, 2]);
+  });
+
+  it("diz o que houve quando o Instagram recusa", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({ buscarDestaque: { ok: false, status: 404 } });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+
+    await expect(
+      coletor.coletarDestaque({
+        adaptador: destaques, idDestaque: "777", profileKey: "ig:@f",
+        urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
+      }),
+    ).rejects.toThrow(/404/);
+  });
+
+  it("avisa quando o destaque não tem nada aproveitável", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      buscarDestaque: { ok: true, status: 200, json: { reels: { "highlight:777": { title: "Vazio", items: [] } } } },
+    });
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+
+    await expect(
+      coletor.coletarDestaque({
+        adaptador: destaques, idDestaque: "777", profileKey: "ig:@f",
+        urlDoPerfil: "https://www.instagram.com/stories/highlights/777/",
+      }),
+    ).rejects.toThrow(/não tem nada/i);
   });
 });
 

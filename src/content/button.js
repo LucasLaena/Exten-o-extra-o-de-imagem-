@@ -10,7 +10,7 @@ export function desmontarBotao() {
  * O botão vive num Shadow DOM. O CSS do Instagram e do TikTok é agressivo e
  * muda toda semana; sem a sombra, o botão herdaria estilo aleatório e sumiria.
  */
-export function montarBotao({ adaptador, handle, aoClicar }) {
+export function montarBotao({ adaptador, handle, aoClicar, rotulo = "Acervo" }) {
   desmontarBotao();
 
   const hospedeiro = document.createElement("div");
@@ -38,7 +38,7 @@ export function montarBotao({ adaptador, handle, aoClicar }) {
       gap: 10px;
       padding: 11px 18px 11px 14px;
       border: 1px solid var(--acervo-verdete-forte);
-      border-left: 4px solid ${FILETE[adaptador.id]};
+      border-left: 4px solid ${FILETE[adaptador.id] ?? FILETE.instagram};
       border-radius: 3px;
       background: var(--acervo-verdete);
       color: var(--acervo-osso);
@@ -74,10 +74,10 @@ export function montarBotao({ adaptador, handle, aoClicar }) {
 
   const botao = document.createElement("button");
   botao.type = "button";
-  botao.setAttribute("aria-label", `Abrir o Acervo do perfil ${handle}`);
+  botao.setAttribute("aria-label", `${rotulo}: ${handle}`);
 
   const nome = document.createElement("span");
-  nome.textContent = "Acervo";
+  nome.textContent = rotulo;
   const arroba = document.createElement("span");
   arroba.className = "arroba";
   arroba.textContent = `@${handle}`;

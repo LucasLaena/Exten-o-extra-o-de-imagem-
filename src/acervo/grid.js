@@ -6,11 +6,32 @@
  *           renderizar: (item, el) => void, aoMudarSelecao?: Function,
  *           margem?: number }} opcoes
  */
+export const PROPORCAO_ITEM = 1.25;
+/** Espaço do rodapé de cada item: posição, métricas e seq. */
+export const ALTURA_RODAPE = 64;
+export const ESPACO_ENTRE = 14;
+
 export function criarGrade({
-  container, alturaLinha, colunas, renderizar, aoMudarSelecao, margem = 2,
+  container, colunas, renderizar, aoMudarSelecao, margem = 2, alturaLinha,
 }) {
   let itens = [];
   let porChave = new Map();
+  let colunasAtuais = colunas;
+  let alturaFixa = alturaLinha ?? null;
+
+  /**
+   * Quanto mede uma linha, dada a largura disponível.
+   *
+   * A virtualização precisa desse número para saber o que está na tela; com
+   * ele errado, a grade desenha a faixa errada. Por isso é calculado, e não
+   * chutado: mais colunas significam itens menores e linhas mais baixas.
+   */
+  const medirLinha = () => {
+    if (alturaFixa) return alturaFixa;
+    const largura = container.clientWidth || 900;
+    const doItem = (largura - ESPACO_ENTRE * (colunasAtuais - 1)) / colunasAtuais;
+    return Math.max(80, Math.round(doItem * PROPORCAO_ITEM + ALTURA_RODAPE));
+  };
   const selecionadas = new Set();
   let ultimaClicada = null;
 
@@ -36,16 +57,24 @@ export function criarGrade({
       return;
     }
 
-    const linhas = Math.ceil(itens.length / colunas);
-    const primeiraLinha = Math.max(0, Math.floor(container.scrollTop / alturaLinha) - margem);
-    const linhasVisiveis = Math.ceil(container.clientHeight / alturaLinha) + margem * 2;
+    const altura = medirLinha();
+    palco.style.gridTemplateColumns = `repeat(${colunasAtuais}, 1fr)`;
+
+    const linhas = Math.ceil(itens.length / colunasAtuais);
+    const primeiraLinha = Math.max(0, Math.floor(container.scrollTop / altura) - margem);
+    const linhasVisiveis = Math.ceil(container.clientHeight / altura) + margem * 2;
     const ultimaLinha = Math.min(linhas, primeiraLinha + linhasVisiveis);
 
-    palco.style.transform = `translateY(${primeiraLinha * alturaLinha}px)`;
+    espacador.style.height = `${linhas * altura}px`;
+    palco.style.transform = `translateY(${primeiraLinha * altura}px)`;
     palco.innerHTML = "";
 
     const fragmento = document.createDocumentFragment();
-    for (let i = primeiraLinha * colunas; i < Math.min(ultimaLinha * colunas, itens.length); i++) {
+    for (
+      let i = primeiraLinha * colunasAtuais;
+      i < Math.min(ultimaLinha * colunasAtuais, itens.length);
+      i++
+    ) {
       const item = itens[i];
       const el = document.createElement("div");
       el.className = "item";
@@ -114,11 +143,20 @@ export function criarGrade({
       // usuário não está mais vendo.
       selecionadas.clear();
       ultimaClicada = null;
-      espacador.style.height = `${Math.ceil(novos.length / colunas) * alturaLinha}px`;
       container.scrollTop = 0;
       desenhar();
       avisar();
     },
+    /**
+     * Muda quantas publicações cabem por linha. Não mexe na seleção: trocar a
+     * densidade é ajustar a lente, não escolher outra coisa.
+     */
+    definirColunas(quantas) {
+      colunasAtuais = Math.max(1, Math.trunc(quantas) || 1);
+      alturaFixa = null;
+      desenhar();
+    },
+    colunas: () => colunasAtuais,
     selecionadas: () => new Set(selecionadas),
     marcar,
     marcarFaixa,

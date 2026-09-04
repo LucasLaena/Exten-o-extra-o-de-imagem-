@@ -1,4 +1,5 @@
 import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
+import { ehDestaque, idDoDestaque } from "../adapters/destaques.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
 import { criarMensageiro, extensaoViva } from "./vida.js";
@@ -91,6 +92,25 @@ export function iniciar() {
     // indefinido. A sondagem de navegação já roda; verificar aqui é de graça.
     if (!extensaoViva(chrome)) {
       desmontar();
+      return;
+    }
+
+    // Dentro de um destaque não há faixa nem ordenação para escolher: a
+    // coleção é pequena e fechada, e o botão baixa ela inteira.
+    if (ehDestaque(url)) {
+      fecharModal();
+      montarBotao({
+        adaptador: { id: "instagram", rotulo: "Instagram" },
+        handle: "este destaque",
+        rotulo: "Baixar destaque",
+        aoClicar: () =>
+          enviar({
+            tipo: "abrirAcervo",
+            perfil: idDoDestaque(url),
+            acao: "destaque",
+            pedido: { destaque: idDoDestaque(url), urlDoDestaque: url },
+          }),
+      });
       return;
     }
 
