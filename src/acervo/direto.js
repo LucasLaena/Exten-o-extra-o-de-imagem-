@@ -66,6 +66,7 @@ export function criarColetorDireto({
 
   function cabecalhos() {
     const headers = {
+      accept: "application/json, text/plain, */*",
       "x-ig-app-id": appId,
       "x-requested-with": "XMLHttpRequest",
       "x-ig-www-claim": "0",
@@ -148,7 +149,12 @@ export function criarColetorDireto({
           try {
             return JSON.parse(resposta.texto);
           } catch {
-            motivo = `resposta não era JSON: ${resposta.texto.slice(0, 120)}`;
+            // Página HTML no lugar dos dados significa que o Instagram leu a
+            // requisição como navegação, não como chamada de API.
+            motivo = /^s*<!DOCTYPE|^s*<html/i.test(resposta.texto)
+              ? "o Instagram devolveu a página do site em vez dos dados — " +
+                "ele leu a requisição como navegação"
+              : `a resposta não era JSON: ${resposta.texto.slice(0, 120)}`;
           }
         } else {
           motivo = `o Instagram respondeu ${resposta.status}: ${resposta.texto.slice(0, 120)}`;

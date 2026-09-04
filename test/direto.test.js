@@ -218,6 +218,31 @@ describe("quando não dá para seguir sem aba", () => {
     expect(erro.message).toContain("login_required");
   });
 
+  it("reconhece a página HTML no lugar dos dados, que tem causa conhecida", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso((url) =>
+      url.includes("/api/v1/feed/")
+        ? { corpo: "<!DOCTYPE html><html lang=\"pt-br\"><head></head></html>" }
+        : { corpo: htmlDoPerfil() },
+    );
+
+    const erro = await coletar(buscar.fn, repo).catch((e) => e);
+    expect(erro.message).toMatch(/página do site em vez dos dados/i);
+    expect(erro.message).toMatch(/navegação/i);
+  });
+
+  it("pede JSON explicitamente no Accept", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso((url) =>
+      url.includes("/api/v1/feed/")
+        ? { corpo: pagina(["a"], null, false) }
+        : { corpo: htmlDoPerfil() },
+    );
+
+    await coletar(buscar.fn, repo);
+    expect(buscar.chamadas[0].init.headers.accept).toContain("application/json");
+  });
+
   it("insiste antes de desistir de uma página", async () => {
     const repo = repoFalso();
     let feeds = 0;

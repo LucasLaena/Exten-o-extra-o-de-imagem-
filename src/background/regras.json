@@ -109,6 +109,21 @@
         {
           "header": "Origin",
           "operation": "remove"
+        },
+        {
+          "header": "Sec-Fetch-Site",
+          "operation": "set",
+          "value": "same-origin"
+        },
+        {
+          "header": "Sec-Fetch-Mode",
+          "operation": "set",
+          "value": "cors"
+        },
+        {
+          "header": "Sec-Fetch-Dest",
+          "operation": "set",
+          "value": "empty"
         }
       ]
     },

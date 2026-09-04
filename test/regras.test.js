@@ -51,6 +51,12 @@ describe("regras de header", () => {
     const nomes = direta.action.requestHeaders.map((h) => h.header.toLowerCase());
     expect(nomes).toContain("referer");
 
+    // Sem os Sec-Fetch o Instagram acha que é navegação e devolve a página
+    // HTML em vez dos dados. Eles não interferem em CORS, ao contrário do Origin.
+    expect(nomes).toContain("sec-fetch-site");
+    const site = direta.action.requestHeaders.find((h) => h.header === "Sec-Fetch-Site");
+    expect(site.value).toBe("same-origin");
+
     // Origin é REMOVIDO, nunca forçado: forçá-lo joga a requisição na
     // validação de CORS, que falha porque a origem real é chrome-extension://.
     const origem = direta.action.requestHeaders.find((h) => h.header === "Origin");
