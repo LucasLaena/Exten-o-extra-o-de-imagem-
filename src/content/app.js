@@ -45,6 +45,12 @@ export function observarNavegacao(aoMudar) {
 }
 
 /**
+ * Qual perfil está aberto agora. A captura do hook não sabe de quem é o feed
+ * que passou; quem sabe é o content script, que acompanha a navegação.
+ */
+let perfilAtual = null;
+
+/**
  * A ponte entre o mundo MAIN (hook) e o service worker. O content script é o
  * único que enxerga os dois lados: o hook fala por postMessage, a extensão fala
  * por chrome.runtime.
@@ -58,7 +64,11 @@ export function instalarPonte({ chromeApi = chrome, janela = window } = {}) {
     if (dados?.fonte !== FONTE_HOOK) return;
 
     if (dados.tipo === "capturou") {
-      chromeApi.runtime.sendMessage({ tipo: "capturou", carga: dados.carga });
+      chromeApi.runtime.sendMessage({
+        tipo: "capturou",
+        profileKey: perfilAtual,
+        carga: dados.carga,
+      });
       return;
     }
 
@@ -102,6 +112,7 @@ export function iniciar() {
   observarNavegacao((url) => {
     const adaptador = adaptadorDaUrl(url);
     if (!adaptador) {
+      perfilAtual = null;
       fecharModal();
       desmontarBotao();
       return;
@@ -109,6 +120,7 @@ export function iniciar() {
 
     const handle = adaptador.handleDaUrl(url);
     const profileKey = chaveDePerfil(adaptador, handle);
+    perfilAtual = profileKey;
 
     montarBotao({
       adaptador,

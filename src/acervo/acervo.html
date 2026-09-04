@@ -2,9 +2,76 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Acervo</title>
+    <link rel="stylesheet" href="acervo.css" />
   </head>
   <body>
-    <p>Acervo</p>
+    <header class="topo">
+      <div>
+        <h1>Acervo</h1>
+        <p class="perfil" id="perfil">—</p>
+      </div>
+      <p class="estado" id="estado">Carregando…</p>
+    </header>
+
+    <section class="barra" aria-label="Filtros e ordenação">
+      <label class="campo">
+        <span>Mídia</span>
+        <select id="filtro">
+          <option value="ambos">Fotos e vídeos</option>
+          <option value="fotos">Só fotos</option>
+          <option value="videos">Só vídeos</option>
+        </select>
+      </label>
+
+      <label class="campo">
+        <span>Ordenar por</span>
+        <select id="ordenacao">
+          <option value="sequencia">Sequência do perfil</option>
+          <option value="curtidas">Mais curtidas</option>
+          <option value="views">Mais visualizações</option>
+          <option value="recentes">Mais recentes</option>
+          <option value="antigos">Mais antigas</option>
+        </select>
+      </label>
+
+      <label class="campo estreito">
+        <span>Da</span>
+        <input type="number" id="de" min="1" value="1" />
+      </label>
+
+      <label class="campo estreito">
+        <span>até</span>
+        <input type="number" id="ate" min="1" value="100" />
+      </label>
+
+      <label class="marca">
+        <input type="checkbox" id="incluirCapaReel" />
+        <span>Incluir capa dos vídeos</span>
+      </label>
+
+      <label class="marca">
+        <input type="checkbox" id="pularBaixados" checked />
+        <span>Pular já baixados</span>
+      </label>
+
+      <div class="acoes">
+        <button id="indexar" type="button" class="secundario">Indexar perfil</button>
+        <button id="escolherPasta" type="button" class="secundario">Escolher pasta</button>
+        <button id="baixar" type="button" class="primario">Baixar</button>
+        <button id="cancelar" type="button" class="secundario" hidden>Cancelar</button>
+      </div>
+    </section>
+
+    <main id="grade" class="grade" role="listbox" aria-label="Publicações"></main>
+
+    <aside class="progresso" id="progresso" hidden>
+      <h2>Baixando</h2>
+      <p id="progressoTexto"></p>
+      <ol id="partes"></ol>
+    </aside>
+
+    <script type="module" src="acervo.js"></script>
   </body>
 </html>
