@@ -151,10 +151,88 @@ function localizarConexao(json) {
   return null;
 }
 
+// --- escolha de mídia e paginação ------------------------------------------
+
+const PASSA_NO_FILTRO = {
+  ambos: () => true,
+  fotos: (m) => m.kind === "foto",
+  videos: (m) => m.kind === "video",
+};
+
+/**
+ * Quais mídias deste post vão para o ZIP. A regra do carrossel mora aqui: o
+ * filtro age mídia a mídia, não no post inteiro.
+ */
+function midiasParaBaixar(post, { filtro, incluirCapaReel }) {
+  const passa = PASSA_NO_FILTRO[filtro];
+  if (!passa) throw new Error(`filtro de mídia desconhecido: ${filtro}`);
+
+  const escolhidas = post.midias.filter(passa).map((midia) => ({ midia, ehCapa: false }));
+
+  // A capa é uma imagem. Com filtro "fotos" ela viraria uma duplicata sem
+  // sentido do que já foi baixado, então só entra quando o vídeo entrou.
+  const temVideoEscolhido = escolhidas.some((x) => x.midia.kind === "video");
+  if (incluirCapaReel && temVideoEscolhido && post.capaUrl) {
+    escolhidas.push({
+      midia: { ordem: 0, kind: "foto", url: post.capaUrl },
+      ehCapa: true,
+    });
+  }
+
+  return escolhidas;
+}
+
+/**
+ * Monta o request da próxima página a partir da assinatura aprendida em runtime.
+ * Nada aqui é hardcoded: doc_id, headers e formato vêm do que o app acabou de
+ * fazer.
+ */
+function proximaPagina(assinatura, cursor) {
+  if (!assinatura?.url) throw new Error("assinatura sem url");
+
+  const { url, metodo = "GET", headers = {}, corpo, paramCursor, ondeVaiOCursor } = assinatura;
+  const init = { method: metodo, headers: { ...headers }, credentials: "include" };
+
+  if (ondeVaiOCursor === "query") {
+    const u = new URL(url);
+    u.searchParams.set(paramCursor, cursor);
+    return { url: u.toString(), init };
+  }
+
+  if (ondeVaiOCursor === "form") {
+    const params = new URLSearchParams(corpo ?? "");
+    const variaveis = params.get("variables");
+    if (variaveis) {
+      const obj = JSON.parse(variaveis);
+      obj[paramCursor] = cursor;
+      params.set("variables", JSON.stringify(obj));
+    } else {
+      params.set(paramCursor, cursor);
+    }
+    init.body = params.toString();
+    return { url, init };
+  }
+
+  if (ondeVaiOCursor === "json") {
+    const obj = JSON.parse(corpo ?? "{}");
+    if (obj.variables && typeof obj.variables === "object") {
+      obj.variables[paramCursor] = cursor;
+    } else {
+      obj[paramCursor] = cursor;
+    }
+    init.body = JSON.stringify(obj);
+    return { url, init };
+  }
+
+  throw new Error(`não sei onde pôr o cursor: ${ondeVaiOCursor}`);
+}
+
 export const instagram = {
   id: "instagram",
   prefixo: "ig",
   rotulo: "Instagram",
+  midiasParaBaixar,
+  proximaPagina,
 
   ehPerfil(url) {
     return instagram.handleDaUrl(url) !== null;
