@@ -36,6 +36,33 @@ export function extrairIdDoPerfil(html, handle) {
   return null;
 }
 
+/**
+ * O token anti-falsificação que o Instagram embute na própria página.
+ *
+ * A API de feed recusa requisição sem ele. Tirá-lo do HTML evita pedir a
+ * permissão de ler cookies — que seria desproporcional para uma extensão que
+ * promete nunca tocar em credencial.
+ */
+export function extrairCsrf(html) {
+  const texto = String(html ?? "");
+  const padroes = [
+    /"csrf_token":"([^"]{8,})"/,
+    /"csrftoken":"([^"]{8,})"/,
+    /csrf_token\\":\\"([^\\"]{8,})/,
+  ];
+  for (const padrao of padroes) {
+    const achado = texto.match(padrao);
+    if (achado?.[1]) return achado[1];
+  }
+  return null;
+}
+
+/** O identificador da versão do app que o Instagram espera nos cabeçalhos. */
+export function extrairAppId(html) {
+  const achado = String(html ?? "").match(/"X-IG-App-ID":"(\d+)"/);
+  return achado?.[1] ?? null;
+}
+
 /** O perfil é privado? Aí a coleta sem sessão não vai a lugar nenhum. */
 export function ehPrivado(html) {
   return /"is_private":\s*true/.test(String(html ?? ""));

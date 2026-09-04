@@ -1,5 +1,7 @@
 import { dormir, esperaAleatoria, ehStatusDeBloqueio } from "../core/queue.js";
-import { extrairIdDoPerfil, ehPrivado, pareceInexistente } from "../core/perfil-html.js";
+import {
+  extrairIdDoPerfil, ehPrivado, pareceInexistente, extrairCsrf, extrairAppId,
+} from "../core/perfil-html.js";
 import { extrairTotal } from "../core/total-do-perfil.js";
 import { IG_APP_ID } from "./sondas.js";
 
@@ -42,11 +44,23 @@ export function criarColetorDireto({
   esperar = dormir,
   aleatorio = Math.random,
 }) {
+  // Descobertos na primeira busca, a da página do perfil, e usados dali em
+  // diante. A API recusa requisição sem o token anti-falsificação.
+  let csrf = null;
+  let appId = IG_APP_ID;
+
+  function cabecalhos() {
+    const headers = {
+      "x-ig-app-id": appId,
+      "x-requested-with": "XMLHttpRequest",
+      "x-ig-www-claim": "0",
+    };
+    if (csrf) headers["x-csrftoken"] = csrf;
+    return headers;
+  }
+
   async function buscarTexto(url) {
-    const resposta = await buscar(url, {
-      credentials: "include",
-      headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" },
-    });
+    const resposta = await buscar(url, { credentials: "include", headers: cabecalhos() });
     return { status: resposta.status, ok: resposta.ok, texto: await resposta.text() };
   }
 
@@ -84,6 +98,10 @@ export function criarColetorDireto({
         { recuperavel: false },
       );
     }
+
+    // A própria página traz o token e o app id que a API vai exigir.
+    csrf = extrairCsrf(resposta.texto) ?? csrf;
+    appId = extrairAppId(resposta.texto) ?? appId;
 
     const userId = extrairIdDoPerfil(resposta.texto, handle);
     if (!userId) {
@@ -129,7 +147,12 @@ export function criarColetorDireto({
       }
     }
 
-    throw new ErroDireto(`O feed respondeu ${ultima ?? 0} depois de ${TENTATIVAS} tentativas.`);
+    const erro = new ErroDireto(
+      `O feed respondeu ${ultima ?? 0} depois de ${TENTATIVAS} tentativas` +
+      `${csrf ? "" : ", e sem o token que a API exige"}.`,
+    );
+    console.warn("[Acervo] busca sem aba falhou:", erro.message);
+    throw erro;
   }
 
   /**

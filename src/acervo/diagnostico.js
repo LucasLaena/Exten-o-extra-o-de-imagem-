@@ -1,7 +1,9 @@
 import {
   pingar, capturaInstalada, lerPerfilDaPagina, sondarInstagram, sondarFeed, IG_APP_ID,
 } from "./sondas.js";
-import { extrairIdDoPerfil, ehPrivado } from "../core/perfil-html.js";
+import {
+  extrairIdDoPerfil, ehPrivado, extrairCsrf, extrairAppId,
+} from "../core/perfil-html.js";
 
 /**
  * Testa cada elo da corrente e diz qual quebrou, com o que fazer.
@@ -53,11 +55,19 @@ export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch })
               "Provavelmente o Instagram devolveu a versão deslogada.",
           );
         } else {
+          const csrf = extrairCsrf(html);
+          const appId = extrairAppId(html) ?? IG_APP_ID;
+
           const feed = await buscar(
             `https://www.instagram.com/api/v1/feed/user/${id}/?count=50`,
             {
               credentials: "include",
-              headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" },
+              headers: {
+                "x-ig-app-id": appId,
+                "x-requested-with": "XMLHttpRequest",
+                "x-ig-www-claim": "0",
+                ...(csrf ? { "x-csrftoken": csrf } : {}),
+              },
             },
           );
           const texto = await feed.text();
@@ -71,7 +81,8 @@ export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch })
             feed.ok && quantas ? "ok" : "aviso",
             feed.ok && quantas
               ? `id ${id}, ${quantas} publicações numa requisição — não precisa de aba`
-              : `id ${id}, mas o feed respondeu ${feed.status}` +
+              : `id ${id}, token ${csrf ? "encontrado" : "AUSENTE"}, ` +
+                `mas o feed respondeu ${feed.status}` +
                 (texto.slice(0, 80) ? `: ${texto.slice(0, 80)}` : ""),
           );
         }
