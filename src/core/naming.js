@@ -92,6 +92,7 @@ export function montarNome({
     curtidas: String(post.curtidas ?? 0),
     views: String(post.views ?? 0),
     idx: String(midia.ordem ?? 0).padStart(2, "0"),
+    origem: midia.origem ?? "publicacao",
   };
 
   const corpo = template.replace(/\{(\w+)(?::(\d+))?\}/g, (_, nome, limite) => {

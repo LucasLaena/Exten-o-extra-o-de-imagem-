@@ -251,7 +251,22 @@ async function indexar({ eDepoisBaixar = false } = {}) {
 
   // No caminho por faixa não há nada para escolher: buscar e baixar são o
   // mesmo gesto, e parar no meio faria a aba virar trampolim de novo.
-  if (eDepoisBaixar && posts.length > 0 && !cancelador) await baixar();
+  if (!eDepoisBaixar) return;
+
+  if (cancelador) {
+    dizer("Cancelado antes de baixar.");
+    return;
+  }
+  if (posts.length === 0) {
+    dizer(
+      "Nada foi catalogado, então não há o que baixar. " +
+      "Clique em Diagnóstico para ver qual passo falhou.",
+    );
+    return;
+  }
+
+  dizer(`Catalogadas ${numero(posts.length)}. Preparando o download…`);
+  await baixar();
 }
 
 async function diagnosticar() {
@@ -291,11 +306,22 @@ async function baixar() {
   }
 
   const baixados = await repo.baixados.chavesDoPerfil(alvo.profileKey);
-  const { selecionados, posicoes } = selecaoAtual(baixados);
+  const { selecionados, posicoes, total, pulados } = selecaoAtual(baixados);
+
   if (selecionados.length === 0) {
-    dizer("Nada selecionado para baixar.");
+    dizer(
+      total === 0
+        ? "O catálogo está vazio: não há o que baixar."
+        : pulados > 0
+          ? `As ${numero(pulados)} publicações da faixa já foram baixadas antes. ` +
+            "Desmarque \"Pular já baixados\" para baixar de novo."
+          : `A faixa pedida não bate com o catálogo: há ${numero(total)} publicações ` +
+            "depois do filtro de mídia. Ajuste a faixa ou o tipo de mídia.",
+    );
     return;
   }
+
+  dizer(`Baixando ${numero(selecionados.length)} publicações…`);
 
   const carimbo = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "");
   const segmentos = ["Acervo", alvo.adaptador.id, `@${alvo.handle}`, carimbo];

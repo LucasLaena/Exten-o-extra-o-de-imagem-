@@ -16,7 +16,7 @@ export function paraCsv(colunas, linhas) {
 }
 
 const COLUNAS_ACERVO = [
-  "posicao", "seq", "id", "tipo", "curtidas", "views", "comentarios",
+  "posicao", "seq", "id", "tipo", "origem", "curtidas", "views", "comentarios",
   "data", "legenda", "arquivos",
 ];
 
@@ -32,6 +32,7 @@ export function csvDoAcervo(registros) {
       seq: post.seq,
       id: post.id,
       tipo: post.tipo,
+      origem: [...new Set((post.midias ?? []).map((m) => m.origem ?? "publicacao"))].join(";"),
       curtidas: post.curtidas,
       views: post.views,
       comentarios: post.comentarios,

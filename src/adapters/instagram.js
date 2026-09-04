@@ -41,21 +41,35 @@ function maiorPor(lista, dimensao = "width") {
   return lista.reduce((a, b) => ((b?.[dimensao] ?? 0) > (a?.[dimensao] ?? 0) ? b : a));
 }
 
-function midiaDeItemV1(item, ordem) {
+function midiaDeItemV1(item, ordem, origem = "publicacao") {
   const video = maiorPor(item?.video_versions);
   if (video?.url) {
     return {
       ordem,
       kind: "video",
+      origem,
       url: video.url,
       largura: video.width,
       altura: video.height,
       ...(item.video_duration ? { duracao: item.video_duration } : {}),
     };
   }
+
+  // Um item que se declara vídeo e não traz endereço de vídeo NÃO vira foto.
+  // O image_versions2 dele é a capa do Reel, e capa de Reel não é uma
+  // publicação de imagem: entregá-la no filtro "só fotos" seria mentir.
+  if (item?.media_type === 2) return null;
+
   const foto = maiorPor(item?.image_versions2?.candidates);
   if (foto?.url) {
-    return { ordem, kind: "foto", url: foto.url, largura: foto.width, altura: foto.height };
+    return {
+      ordem,
+      kind: "foto",
+      origem,
+      url: foto.url,
+      largura: foto.width,
+      altura: foto.height,
+    };
   }
   return null;
 }
@@ -66,7 +80,7 @@ function normalizarV1(item) {
   const midias =
     tipo === "carrossel"
       ? (item.carousel_media ?? [])
-          .map(midiaDeItemV1)
+          .map((filho, i) => midiaDeItemV1(filho, i, "carrossel"))
           .filter(Boolean)
           .map((m, i) => ({ ...m, ordem: i }))
       : [midiaDeItemV1(item, 0)].filter(Boolean);
@@ -87,20 +101,25 @@ function normalizarV1(item) {
   };
 }
 
-function midiaDeNoLegado(no, ordem) {
+function midiaDeNoLegado(no, ordem, origem = "publicacao") {
   if (no?.video_url) {
     return {
       ordem,
       kind: "video",
+      origem,
       url: no.video_url,
       largura: no.dimensions?.width,
       altura: no.dimensions?.height,
     };
   }
+  // Mesma regra do formato novo: display_url de um GraphVideo é a capa dele.
+  if (/Video$/.test(no?.__typename ?? "")) return null;
+
   if (no?.display_url) {
     return {
       ordem,
       kind: "foto",
+      origem,
       url: no.display_url,
       largura: no.dimensions?.width,
       altura: no.dimensions?.height,
@@ -115,7 +134,7 @@ function normalizarLegado(no) {
   const midias =
     tipo === "carrossel"
       ? (no.edge_sidecar_to_children?.edges ?? [])
-          .map((e, i) => midiaDeNoLegado(e.node, i))
+          .map((e, i) => midiaDeNoLegado(e.node, i, "carrossel"))
           .filter(Boolean)
       : [midiaDeNoLegado(no, 0)].filter(Boolean);
 
@@ -174,7 +193,7 @@ function midiasParaBaixar(post, { filtro, incluirCapaReel }) {
   const temVideoEscolhido = escolhidas.some((x) => x.midia.kind === "video");
   if (incluirCapaReel && temVideoEscolhido && post.capaUrl) {
     escolhidas.push({
-      midia: { ordem: 0, kind: "foto", url: post.capaUrl },
+      midia: { ordem: 0, kind: "foto", origem: "capa-de-video", url: post.capaUrl },
       ehCapa: true,
     });
   }

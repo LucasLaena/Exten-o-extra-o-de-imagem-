@@ -51,7 +51,7 @@ describe("csvDoAcervo", () => {
   it("tem as colunas que a spec pede", () => {
     const [cabecalho] = csvDoAcervo(registros).slice(1).split("\r\n");
     expect(cabecalho).toBe(
-      "posicao,seq,id,tipo,curtidas,views,comentarios,data,legenda,arquivos",
+      "posicao,seq,id,tipo,origem,curtidas,views,comentarios,data,legenda,arquivos",
     );
   });
 
@@ -66,6 +66,15 @@ describe("csvDoAcervo", () => {
   it("junta vários arquivos do mesmo post com ponto e vírgula", () => {
     const csv = csvDoAcervo([{ ...registros[0], arquivos: ["a.jpg", "b.jpg"] }]);
     expect(csv).toContain("a.jpg;b.jpg");
+  });
+
+  it("diz de onde veio a mídia, para separar foto real de capa de vídeo", () => {
+    const csv = csvDoAcervo([{
+      post: criarPost({ id: "X", midias: [{ ordem: 0, kind: "foto", origem: "carrossel", url: "u" }] }),
+      posicao: 1,
+      arquivos: ["a.jpg"],
+    }]);
+    expect(csv).toContain("carrossel");
   });
 });
 
