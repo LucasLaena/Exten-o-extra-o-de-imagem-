@@ -54,9 +54,16 @@ export async function abrirAcervo(idb = globalThis.indexedDB, Range = globalThis
     fechar: () => db.close(),
 
     perfis: {
+      /**
+       * Mescla, não substitui. Dois escritores independentes gravam neste
+       * registro: o service worker guarda a assinatura do feed, o indexador
+       * guarda o progresso. Com put puro, o segundo apagava o campo do
+       * primeiro — e sem assinatura a indexação não tem como começar.
+       */
       async salvar(perfil) {
         const store = escrita("profiles");
-        store.put(perfil);
+        const atual = await promessa(store.get(perfil.key));
+        store.put({ ...atual, ...perfil });
         await fim(store.transaction);
       },
       obter: (key) => promessa(leitura("profiles").get(key)),

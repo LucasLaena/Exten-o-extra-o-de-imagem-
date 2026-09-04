@@ -72,7 +72,6 @@ async function redesenhar() {
   });
 
   dizer(tela.resumo);
-  $("indexar").disabled = !tela.podeIndexar;
   mostrarVazio(tela.vazio);
 }
 
@@ -122,13 +121,19 @@ function renderizarItem(item, el) {
 
 async function indexar() {
   if (abaAlvo == null) {
-    dizer("Abra o perfil numa aba e clique no botão do Acervo para indexar.");
+    dizer(
+      "Não sei de qual aba indexar. Volte para a aba do perfil e abra o " +
+      "Acervo pelo botão que fica no canto inferior direito da página.",
+    );
     return;
   }
 
   const perfil = await repo.perfis.obter(profileKey);
   if (!perfil?.assinatura) {
-    dizer("Ainda não vi o feed carregar. Role um pouco o perfil e tente de novo.");
+    dizer(
+      "Ainda não vi o feed deste perfil. Volte para a aba do perfil, " +
+      "recarregue com F5, role a grade por alguns segundos e tente de novo.",
+    );
     return;
   }
 

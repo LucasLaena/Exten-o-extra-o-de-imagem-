@@ -35,12 +35,34 @@ describe("perfis", () => {
     expect(await repo.perfis.obter("ig:@fantasma")).toBeUndefined();
   });
 
-  it("sobrescreve ao salvar de novo, guardando o cursor de retomada", async () => {
+  it("atualiza o cursor de retomada ao salvar de novo", async () => {
     await repo.perfis.salvar({ key: "ig:@a", cursor: "c1", totalIndexado: 10 });
     await repo.perfis.salvar({ key: "ig:@a", cursor: "c2", totalIndexado: 20 });
     const p = await repo.perfis.obter("ig:@a");
     expect(p.cursor).toBe("c2");
     expect(await repo.perfis.listar()).toHaveLength(1);
+  });
+
+  it("mescla em vez de substituir: dois escritores diferentes gravam aqui", async () => {
+    // O service worker grava a assinatura; o indexador grava o progresso.
+    // Com put puro, o segundo apagava o campo do primeiro e o botão de
+    // indexar ficava permanentemente desabilitado.
+    await repo.perfis.salvar({ key: "ig:@a", assinatura: { url: "https://feed" } });
+    await repo.perfis.salvar({ key: "ig:@a", cursor: "c1", totalIndexado: 12 });
+
+    const p = await repo.perfis.obter("ig:@a");
+    expect(p.assinatura).toEqual({ url: "https://feed" });
+    expect(p.cursor).toBe("c1");
+    expect(p.totalIndexado).toBe(12);
+  });
+
+  it("uma assinatura nova substitui a anterior, sem virar mistura", async () => {
+    await repo.perfis.salvar({ key: "ig:@a", assinatura: { url: "https://velha", doc: 1 } });
+    await repo.perfis.salvar({ key: "ig:@a", assinatura: { url: "https://nova" } });
+    expect(await repo.perfis.obter("ig:@a")).toMatchObject({
+      assinatura: { url: "https://nova" },
+    });
+    expect((await repo.perfis.obter("ig:@a")).assinatura.doc).toBeUndefined();
   });
 });
 

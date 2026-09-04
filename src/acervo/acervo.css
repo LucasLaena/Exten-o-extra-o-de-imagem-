@@ -153,6 +153,12 @@ button {
 }
 .secundario:hover { border-color: var(--tinta); }
 
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 button:focus-visible {
   outline: 2px solid var(--tinta);
   outline-offset: 2px;
