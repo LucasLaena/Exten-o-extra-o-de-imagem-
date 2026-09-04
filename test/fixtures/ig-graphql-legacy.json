@@ -1,0 +1,59 @@
+{
+  "data": {
+    "user": {
+      "edge_owner_to_timeline_media": {
+        "count": 3120,
+        "page_info": { "has_next_page": false, "end_cursor": null },
+        "edges": [
+          {
+            "node": {
+              "id": "3300000000000000010",
+              "shortcode": "LEGVID",
+              "__typename": "GraphVideo",
+              "video_url": "https://cdn.test/legado.mp4",
+              "display_url": "https://cdn.test/legado-capa.jpg",
+              "dimensions": { "width": 640, "height": 800 },
+              "video_view_count": 5000,
+              "taken_at_timestamp": 1700000000,
+              "edge_media_preview_like": { "count": 77 },
+              "edge_media_to_comment": { "count": 9 },
+              "edge_media_to_caption": { "edges": [{ "node": { "text": "legado" } }] }
+            }
+          },
+          {
+            "node": {
+              "id": "3300000000000000011",
+              "shortcode": "LEGCAR",
+              "__typename": "GraphSidecar",
+              "display_url": "https://cdn.test/legado-carr.jpg",
+              "dimensions": { "width": 1080, "height": 1080 },
+              "taken_at_timestamp": 1699000000,
+              "edge_media_preview_like": { "count": 5 },
+              "edge_media_to_comment": { "count": 0 },
+              "edge_media_to_caption": { "edges": [] },
+              "edge_sidecar_to_children": {
+                "edges": [
+                  {
+                    "node": {
+                      "__typename": "GraphImage",
+                      "display_url": "https://cdn.test/filho-1.jpg",
+                      "dimensions": { "width": 1080, "height": 1080 }
+                    }
+                  },
+                  {
+                    "node": {
+                      "__typename": "GraphVideo",
+                      "video_url": "https://cdn.test/filho-2.mp4",
+                      "display_url": "https://cdn.test/filho-2-capa.jpg",
+                      "dimensions": { "width": 1080, "height": 1080 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
