@@ -1,6 +1,8 @@
-// No TikTok o perfil é sempre /@handle, então basta exigir o arroba e recusar
-// qualquer segmento a mais (que seria /video/, /live, etc).
-const HANDLE = /^[A-Za-z0-9._]{1,24}$/;
+// No TikTok o perfil é /@handle, com um prefixo de idioma opcional antes:
+// /pt-BR/@handle é a forma que quem usa o site em português recebe.
+// Qualquer segmento a mais depois do handle é outra coisa (/video/, /live).
+const HANDLE = /^[A-Za-z0-9._-]{1,30}$/;
+const IDIOMA = /^[a-z]{2}(-[A-Za-z]{2,4})?$/;
 
 function segmentos(url) {
   try {
@@ -80,8 +82,13 @@ export const tiktok = {
   },
 
   handleDaUrl(url) {
-    const partes = segmentos(url);
-    if (!partes || partes.length !== 1) return null;
+    let partes = segmentos(url);
+    if (!partes) return null;
+
+    // Descarta o prefixo de idioma, quando houver.
+    if (partes.length === 2 && IDIOMA.test(partes[0])) partes = partes.slice(1);
+    if (partes.length !== 1) return null;
+
     const [primeiro] = partes;
     if (!primeiro.startsWith("@")) return null;
     const handle = primeiro.slice(1);

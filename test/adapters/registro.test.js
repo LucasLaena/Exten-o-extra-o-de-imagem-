@@ -89,9 +89,22 @@ describe("tiktok.ehPerfil", () => {
     "https://www.tiktok.com/@fulano",
     "https://www.tiktok.com/@fulano/",
     "https://www.tiktok.com/@fulano?lang=pt-BR",
+    "https://www.tiktok.com/@fulano?is_from_webapp=1&sender_device=pc",
     "https://www.tiktok.com/@nome.com_ponto",
+    "https://www.tiktok.com/@nome-com-hifen",
+    "https://www.tiktok.com/@umnomedeusuariobemlongoassim",
+    "https://tiktok.com/@fulano",
+    // O TikTok põe o idioma no caminho. Quem usa o site em português cai
+    // nessa forma o tempo todo.
+    "https://www.tiktok.com/pt-BR/@fulano",
+    "https://www.tiktok.com/en/@fulano",
+    "https://www.tiktok.com/zh-Hant/@fulano",
   ])("reconhece %s", (url) => {
     expect(tt.ehPerfil(url)).toBe(true);
+  });
+
+  it("extrai o handle mesmo com prefixo de idioma", () => {
+    expect(tt.handleDaUrl("https://www.tiktok.com/pt-BR/@fulano")).toBe("fulano");
   });
 
   it.each([
@@ -99,6 +112,7 @@ describe("tiktok.ehPerfil", () => {
     "https://www.tiktok.com/foryou",
     "https://www.tiktok.com/explore",
     "https://www.tiktok.com/@fulano/video/123456",
+    "https://www.tiktok.com/pt-BR/foryou",
     "https://www.tiktok.com/tag/gato",
     "https://www.tiktok.com/music/algo-123",
     "https://www.tiktok.com/search?q=gato",
