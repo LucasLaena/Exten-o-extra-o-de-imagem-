@@ -163,8 +163,12 @@ async function indexar() {
   const coletor = criarColetor({
     executor,
     repo,
-    aoProgresso: ({ indexados, paginas }) =>
-      dizer(`Indexando… ${numero(indexados)} publicações, ${paginas} páginas`),
+    aoProgresso: ({ indexados, paginas, aviso }) =>
+      dizer(
+        aviso
+          ? `${aviso} (${numero(indexados)} até agora)`
+          : `Indexando… ${numero(indexados)} publicações, ${paginas} páginas`,
+      ),
   });
 
   try {
@@ -177,10 +181,12 @@ async function indexar() {
       seqInicial: await repo.posts.maiorSeq(alvo.profileKey),
       sinal: controle.signal,
     });
+    const comoVeio = r.recuouParaRolagem ? " (coletado pela rolagem da página)" : "";
     dizer(
       r.completo
-        ? `Catálogo completo: ${numero(r.indexados)} publicações.`
-        : `Parou em ${numero(r.indexados)}. Clique em Indexar perfil para continuar.`,
+        ? `Catálogo completo: ${numero(r.indexados)} publicações.` + comoVeio
+        : `Parou em ${numero(r.indexados)}.` + comoVeio +
+          " Clique em Indexar perfil para continuar de onde parou.",
     );
   } catch (erro) {
     dizer(erro.message);

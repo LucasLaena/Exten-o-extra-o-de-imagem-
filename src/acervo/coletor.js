@@ -63,35 +63,54 @@ export function criarColetor({
   }
 
   /**
-   * Descobre o id do perfil. Lê a página primeiro, que não custa requisição
-   * nenhuma; a API é plano B porque devolve 429 com muita facilidade.
+   * Descobre o id do perfil, do mais barato para o mais arriscado:
+   *
+   * 1. do próprio feed já capturado — mesma fonte que vamos paginar;
+   * 2. do HTML da página, se o formato conhecido estiver lá;
+   * 3. da API, que é a única que custa requisição e devolve 429 fácil.
    */
-  async function identificarPerfil(abaId, handle) {
+  async function identificarPerfil(abaId, handle, idDasCapturas, jaColhidos) {
+    if (idDasCapturas) {
+      return { ok: true, userId: idDasCapturas, total: null, privado: false, fonte: "captura" };
+    }
+
     const daPagina = await executor.rodar(abaId, lerPerfilDaPagina, [handle]);
-    if (daPagina?.ok) return { ok: true, userId: daPagina.userId, total: null, privado: false };
+    if (daPagina?.ok) {
+      return { ok: true, userId: daPagina.userId, total: null, privado: false, fonte: "pagina" };
+    }
 
     const daApi = await executor.rodar(abaId, sondarInstagram, [handle, IG_APP_ID]);
-    if (daApi?.ok) return daApi;
+    if (daApi?.ok) return { ...daApi, fonte: "api" };
+
+    // O que já entrou está salvo; dizer isso muda o tom do erro por completo.
+    const salvo = jaColhidos > 0
+      ? ` As ${jaColhidos} publicações que a página já tinha carregado ficaram salvas.`
+      : "";
 
     if (daApi?.status === 429) {
       throw new ErroDeColeta(
-        "O Instagram está limitando as consultas agora (429). Espere alguns minutos " +
-        "e tente de novo. Dica: deixe a aba do perfil aberta e role a grade antes de " +
-        "indexar — assim o Acervo lê o id direto da página, sem consultar nada.",
+        "O Instagram está limitando as consultas agora (429)." + salvo +
+        " Espere uns 15 minutos. Dica: abra a aba do perfil, role a grade até carregar " +
+        "várias publicações, e só então clique em Indexar — assim o Acervo pega tudo " +
+        "do que a página carregou, sem consultar a API.",
       );
     }
     throw new ErroDeColeta(
       `Não consegui identificar o perfil @${handle} ` +
-      `(o Instagram respondeu ${daApi?.status ?? "nada"}). ` +
-      "Confira se o perfil existe e se você está logado nessa aba.",
+      `(o Instagram respondeu ${daApi?.status ?? "nada"}).` + salvo +
+      " Confira se o perfil existe e se você está logado nessa aba.",
     );
   }
 
   /** Instagram: pagina direto pelo endpoint de feed, de dentro da aba. */
   async function coletarInstagram({ abaId, adaptador, handle, profileKey, estado, teto, sinal }) {
-    // O que a página já carregou entra sem custo nenhum de rede.
+    // O que a página já carregou entra sem custo nenhum de rede — e é dele
+    // que sai o id do dono, a fonte mais confiável que existe para esse dado.
     const jaCarregado = (await executor.rodar(abaId, drenarCapturas)) ?? [];
+    let idDasCapturas = null;
+
     for (const captura of jaCarregado) {
+      idDasCapturas ??= adaptador.idDoDono?.(captura.json) ?? null;
       const pagina = adaptador.parsear(captura.json);
       const novos = preparar(pagina.itens, estado, profileKey);
       if (novos.length > 0) {
@@ -100,7 +119,19 @@ export function criarColetor({
       }
     }
 
-    const perfil = await identificarPerfil(abaId, handle);
+    let perfil;
+    try {
+      perfil = await identificarPerfil(abaId, handle, idDasCapturas, estado.indexados);
+    } catch (erro) {
+      // Sem id não dá para paginar pela API, mas dá para rolar a página.
+      estado.recuouParaRolagem = true;
+      aoProgresso?.({
+        indexados: estado.indexados,
+        paginas: estado.paginas,
+        aviso: erro.message + " Continuando pela rolagem da página.",
+      });
+      return { recuar: true };
+    }
 
     if (perfil.privado) {
       throw new ErroDeColeta(
@@ -123,17 +154,18 @@ export function criarColetor({
         { headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" } },
       ]);
 
-      if (ehStatusDeBloqueio(resposta?.status)) {
-        throw new ErroDeColeta(
-          `O Instagram bloqueou a consulta (${resposta.status}). ` +
-          "Espere alguns minutos antes de tentar de novo. O que já foi catalogado está salvo.",
-        );
-      }
-      if (!resposta?.ok) {
-        throw new ErroDeColeta(
-          `O feed respondeu ${resposta?.status ?? 0}` +
-          (resposta?.erro ? `: ${resposta.erro}` : "") + ".",
-        );
+      // Bloqueio no meio da paginação não é o fim: a rolagem não faz
+      // requisição nenhuma por conta própria, então atravessa o rate-limit.
+      if (ehStatusDeBloqueio(resposta?.status) || !resposta?.ok) {
+        estado.recuouParaRolagem = true;
+        aoProgresso?.({
+          indexados: estado.indexados,
+          paginas: estado.paginas,
+          aviso:
+            `O Instagram limitou a consulta (${resposta?.status ?? 0}). ` +
+            "Continuando pela rolagem da página, que é mais lenta.",
+        });
+        return { recuar: true };
       }
 
       const pagina = adaptador.parsear(resposta.json);
@@ -157,10 +189,18 @@ export function criarColetor({
       if (estado.completo || (teto != null && estado.indexados >= teto)) break;
       await esperar(esperaAleatoria(ESPERA_MIN_MS, ESPERA_MAX_MS, aleatorio), sinal);
     }
+
+    return { recuar: false };
   }
 
-  /** TikTok: rola a página e recolhe o que o próprio app carregou. */
-  async function coletarTikTok({ abaId, adaptador, profileKey, estado, teto, sinal }) {
+  /**
+   * Rola a página e recolhe o que o próprio app carrega.
+   *
+   * É a estratégia do TikTok e o plano de recuo do Instagram: não faz
+   * requisição nenhuma por conta própria, então atravessa rate-limit. É mais
+   * lenta e exige a aba aberta, mas funciona quando a API fecha a porta.
+   */
+  async function coletarRolando({ abaId, adaptador, profileKey, estado, teto, sinal }) {
     let semNovidade = 0;
 
     while (semNovidade < rolagensSemNovidade) {
@@ -228,10 +268,13 @@ export function criarColetor({
         );
       }
 
+      const argumentos = { abaId: aba.abaId, adaptador, handle, profileKey, estado, teto, sinal };
+
       if (adaptador.id === "instagram") {
-        await coletarInstagram({ abaId: aba.abaId, adaptador, handle, profileKey, estado, teto, sinal });
+        const r = await coletarInstagram(argumentos);
+        if (r?.recuar) await coletarRolando(argumentos);
       } else {
-        await coletarTikTok({ abaId: aba.abaId, adaptador, profileKey, estado, teto, sinal });
+        await coletarRolando(argumentos);
       }
     } finally {
       await executor.fecharSeCriada(aba);
@@ -241,6 +284,7 @@ export function criarColetor({
       indexados: estado.indexados,
       paginas: estado.paginas,
       completo: estado.completo,
+      recuouParaRolagem: Boolean(estado.recuouParaRolagem),
     };
   }
 

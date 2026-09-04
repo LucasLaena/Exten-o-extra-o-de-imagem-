@@ -61,7 +61,8 @@ export function estadoDaTela({ total, baixados, temAssinatura, temAba }) {
     vazio: {
       titulo: "Catálogo vazio",
       passos: [
-        "Clique em Indexar perfil para catalogar as publicações.",
+        "Abra o perfil numa aba e role a grade por alguns segundos — é isso que faz a plataforma carregar os dados.",
+        "Volte aqui e clique em Indexar perfil.",
         "Num perfil grande isso leva alguns minutos, e fica salvo para sempre.",
       ],
       porque:

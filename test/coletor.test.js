@@ -44,6 +44,9 @@ const paginaRest = (codes, maxId, mais) => ({
   next_max_id: maxId,
 });
 
+/** Uma captura de feed do Instagram, como a rolagem faria surgir. */
+const capturaIG = (codes, mais) => ({ json: paginaRest(codes, mais ? "M" : null, mais) });
+
 const semEspera = () => Promise.resolve();
 
 describe("Instagram", () => {
@@ -105,22 +108,31 @@ describe("Instagram", () => {
     expect(urls[1]).toContain("max_id=MAXID_1");
   });
 
-  it("diz claramente quando o perfil não pôde ser identificado", async () => {
+  it("recua para a rolagem quando o perfil não pôde ser identificado", async () => {
     const repo = repoFalso();
+    let vez = 0;
     const executor = executorFalso({
       capturaInstalada: true,
-      drenarCapturas: [],
       lerPerfilDaPagina: { ok: false },
       sondarInstagram: { ok: false, status: 404 },
+      rolarAteOFim: 1,
+      drenarCapturas: () => {
+        vez++;
+        // A primeira drenagem é a do início da coleta, antes de identificar.
+        if (vez === 1) return [];
+        if (vez === 2) return [capturaIG(["r1", "r2"], false)];
+        return [];
+      },
     });
     const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
-    await expect(
-      coletor.coletar({
-        adaptador: instagram, handle: "nao_existe", profileKey: "ig:@nao_existe",
-        urlDoPerfil: "https://www.instagram.com/nao_existe/",
-      }),
-    ).rejects.toThrow(/não consegui identificar o perfil/i);
+    const r = await coletor.coletar({
+      adaptador: instagram, handle: "nao_existe", profileKey: "ig:@nao_existe",
+      urlDoPerfil: "https://www.instagram.com/nao_existe/",
+    });
+
+    expect(r.recuouParaRolagem).toBe(true);
+    expect(repo.posts.todos().map((p) => p.id)).toEqual(["r1", "r2"]);
   });
 
   it("avisa que o perfil é privado em vez de devolver vazio", async () => {
@@ -142,23 +154,30 @@ describe("Instagram", () => {
     ).rejects.toThrow(/privado/i);
   });
 
-  it("para em bloqueio da plataforma, sem insistir", async () => {
+  it("recua para a rolagem quando a API bloqueia no meio", async () => {
     const repo = repoFalso();
+    let vez = 0;
     const executor = executorFalso({
       capturaInstalada: true,
-      drenarCapturas: [],
-      lerPerfilDaPagina: { ok: false },
-      sondarInstagram: { ok: true, status: 200, userId: "1", total: 10 },
+      lerPerfilDaPagina: { ok: true, userId: "1" },
       buscarJson: { ok: false, status: 429, json: null },
+      rolarAteOFim: 1,
+      drenarCapturas: () => {
+        vez++;
+        if (vez === 1) return [];
+        if (vez === 2) return [capturaIG(["r1"], false)];
+        return [];
+      },
     });
     const coletor = criarColetor({ executor, repo, esperar: semEspera });
 
-    await expect(
-      coletor.coletar({
-        adaptador: instagram, handle: "f", profileKey: "ig:@f",
-        urlDoPerfil: "https://www.instagram.com/f/",
-      }),
-    ).rejects.toThrow(/bloqueou/i);
+    const r = await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(r.recuouParaRolagem).toBe(true);
+    expect(repo.posts.todos().map((p) => p.id)).toEqual(["r1"]);
   });
 
   it("grava o progresso a cada página, para retomar depois", async () => {
@@ -301,22 +320,29 @@ describe("identificação do perfil sem gastar requisição", () => {
     expect(executor.chamadas.some((c) => c.nome === "sondarInstagram")).toBe(true);
   });
 
-  it("explica o 429 e diz como contornar", async () => {
+  it("avisa sobre o 429 e recua, em vez de abortar", async () => {
     const repo = repoFalso();
+    const avisos = [];
     const executor = executorFalso({
       capturaInstalada: true,
       drenarCapturas: [],
       lerPerfilDaPagina: { ok: false },
       sondarInstagram: { ok: false, status: 429 },
+      rolarAteOFim: 1,
     });
 
-    const coletor = criarColetor({ executor, repo, esperar: semEspera });
-    await expect(
-      coletor.coletar({
-        adaptador: instagram, handle: "f", profileKey: "ig:@f",
-        urlDoPerfil: "https://www.instagram.com/f/",
-      }),
-    ).rejects.toThrow(/limitando as consultas.*429/is);
+    const coletor = criarColetor({
+      executor, repo, esperar: semEspera,
+      aoProgresso: (e) => { if (e.aviso) avisos.push(e.aviso); },
+    });
+    const r = await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(r.recuouParaRolagem).toBe(true);
+    expect(avisos.join(" ")).toMatch(/limitando as consultas.*429/is);
+    expect(avisos.join(" ")).toMatch(/rolagem/i);
   });
 
   it("aproveita o que a página já tinha carregado, de graça", async () => {

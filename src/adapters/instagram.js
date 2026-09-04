@@ -227,12 +227,49 @@ function proximaPagina(assinatura, cursor) {
   throw new Error(`não sei onde pôr o cursor: ${ondeVaiOCursor}`);
 }
 
+/**
+ * Extrai o id numérico do dono do feed de uma resposta já capturada.
+ *
+ * É a fonte mais confiável que existe para esse id: vem exatamente do mesmo
+ * payload que vamos paginar. Ler o HTML da página falha quando o Instagram
+ * muda o formato, e o endpoint web_profile_info devolve 429 com facilidade.
+ */
+function idDoDono(json) {
+  if (!json || typeof json !== "object") return null;
+
+  const candidatos = [];
+  const dados = json.data ?? {};
+
+  candidatos.push(dados.user?.id);
+
+  const conexoes = [
+    dados.xdt_api__v1__feed__user_timeline_graphql_connection,
+    dados.user?.edge_owner_to_timeline_media,
+  ];
+  for (const conexao of conexoes) {
+    for (const aresta of conexao?.edges ?? []) {
+      candidatos.push(aresta?.node?.user?.pk, aresta?.node?.owner?.id);
+    }
+  }
+  for (const item of json.items ?? []) {
+    candidatos.push(item?.user?.pk, item?.owner?.id);
+  }
+
+  for (const bruto of candidatos) {
+    if (bruto == null) continue;
+    const texto = String(bruto);
+    if (/^\d+$/.test(texto)) return texto;
+  }
+  return null;
+}
+
 export const instagram = {
   id: "instagram",
   prefixo: "ig",
   rotulo: "Instagram",
   midiasParaBaixar,
   proximaPagina,
+  idDoDono,
 
   ehPerfil(url) {
     return instagram.handleDaUrl(url) !== null;
