@@ -206,6 +206,26 @@ async function trocarAlvo(entrada, { redesenha = true } = {}) {
 
 // --- ações ------------------------------------------------------------------
 
+/**
+ * Por que a busca direta não deu conta.
+ *
+ * Fica numa nota fixa porque a linha de estado é sobrescrita pelo progresso
+ * da coleta seguinte em menos de um segundo — e este é justamente o texto que
+ * explica por que a aba precisou abrir.
+ */
+function avisarRecuo(motivo) {
+  const nota = $("recuo");
+  nota.hidden = false;
+  nota.textContent =
+    `A busca sem aba não deu conta: ${motivo} Por isso a aba do perfil abriu. ` +
+    "Clique em Diagnóstico para ver os detalhes.";
+}
+
+function limparRecuo() {
+  $("recuo").hidden = true;
+  $("recuo").textContent = "";
+}
+
 /** O que dizer enquanto a coleta anda, venha ela de qual caminho vier. */
 function relatarProgresso({ indexados, paginas, total, aviso, rolando, paradas, limite, semAba }) {
   if (aviso) {
@@ -245,6 +265,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // Indexar substitui, nao soma. Somar em cima do que ja existia misturava
     // coletas de filtros diferentes e a lista so crescia, sem nunca refletir
     // o que foi pedido agora.
+    limparRecuo();
     dizer("Limpando o catálogo anterior…");
     await repo.posts.limparTudo();
     await repo.perfis.salvar({
@@ -274,7 +295,11 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         });
       } catch (erro) {
         if (erro.recuperavel === false) throw erro;
-        dizer(`${erro.message} Tentando pela aba do perfil…`);
+
+        // Numa nota fixa, não na linha de estado: o progresso da aba
+        // sobrescreveria a mensagem em menos de um segundo e o motivo se
+        // perderia justamente quando mais importa.
+        avisarRecuo(erro.message);
       }
     }
 

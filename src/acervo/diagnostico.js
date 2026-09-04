@@ -1,6 +1,7 @@
 import {
   pingar, capturaInstalada, lerPerfilDaPagina, sondarInstagram, sondarFeed, IG_APP_ID,
 } from "./sondas.js";
+import { extrairIdDoPerfil, ehPrivado } from "../core/perfil-html.js";
 
 /**
  * Testa cada elo da corrente e diz qual quebrou, com o que fazer.
@@ -9,7 +10,7 @@ import {
  * nada acontecia, sem nenhuma pista. Aqui cada passo devolve verde, vermelho
  * ou aviso, e o vermelho vem com instrução.
  */
-export async function rodarDiagnostico({ executor, alvo, repo }) {
+export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch }) {
   const passos = [];
   const registrar = (nome, estado, detalhe) => {
     passos.push({ nome, estado, detalhe });
@@ -21,6 +22,64 @@ export async function rodarDiagnostico({ executor, alvo, repo }) {
     return passos;
   }
   registrar("Perfil informado", "ok", `${alvo.profileKey} → ${alvo.urlDoPerfil}`);
+
+  // A busca direta é o caminho principal: se ela funciona, nem precisamos de
+  // aba. Testá-la primeiro é o que separa "não deu" de "não deu por causa X".
+  if (alvo.adaptador.id === "instagram") {
+    try {
+      const url = `https://www.instagram.com/${encodeURIComponent(alvo.handle)}/`;
+      const resposta = await buscar(url, {
+        credentials: "include",
+        headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" },
+      });
+      const html = await resposta.text();
+
+      if (!resposta.ok) {
+        registrar(
+          "Busca sem aba",
+          "aviso",
+          `a página do perfil respondeu ${resposta.status}. ` +
+            "A coleta vai precisar abrir a aba do perfil.",
+        );
+      } else if (ehPrivado(html)) {
+        registrar("Busca sem aba", "erro", "este perfil é privado; o Acervo só lê perfil público.");
+      } else {
+        const id = extrairIdDoPerfil(html, alvo.handle);
+        if (!id) {
+          registrar(
+            "Busca sem aba",
+            "aviso",
+            `a página veio (${html.length} caracteres) mas sem o identificador do perfil. ` +
+              "Provavelmente o Instagram devolveu a versão deslogada.",
+          );
+        } else {
+          const feed = await buscar(
+            `https://www.instagram.com/api/v1/feed/user/${id}/?count=50`,
+            {
+              credentials: "include",
+              headers: { "x-ig-app-id": IG_APP_ID, "x-requested-with": "XMLHttpRequest" },
+            },
+          );
+          const texto = await feed.text();
+          let quantas = null;
+          try {
+            quantas = JSON.parse(texto)?.items?.length ?? null;
+          } catch {}
+
+          registrar(
+            "Busca sem aba",
+            feed.ok && quantas ? "ok" : "aviso",
+            feed.ok && quantas
+              ? `id ${id}, ${quantas} publicações numa requisição — não precisa de aba`
+              : `id ${id}, mas o feed respondeu ${feed.status}` +
+                (texto.slice(0, 80) ? `: ${texto.slice(0, 80)}` : ""),
+          );
+        }
+      }
+    } catch (erro) {
+      registrar("Busca sem aba", "erro", String(erro?.message ?? erro));
+    }
+  }
 
   let aba;
   try {
