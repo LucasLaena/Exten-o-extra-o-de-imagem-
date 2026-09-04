@@ -58,11 +58,40 @@ export function lerPerfilDaPagina(handle) {
     new RegExp('"owner":\\{"id":"(\\d+)"'),
   ];
 
+  // O total declarado é o denominador do contador: sem ele não dá para dizer
+  // se a coleta terminou ou apenas travou.
+  let total = null;
+  const doTotal = html.match(/"edge_owner_to_timeline_media":\{"count":(\d+)/);
+  if (doTotal) total = Number(doTotal[1]);
+
   for (const padrao of padroes) {
     const achado = html.match(padrao);
-    if (achado && achado[1]) return { ok: true, userId: achado[1], fonte: "pagina" };
+    if (achado && achado[1]) {
+      return { ok: true, userId: achado[1], total: total, fonte: "pagina" };
+    }
   }
-  return { ok: false, fonte: "pagina" };
+  return { ok: false, total: total, fonte: "pagina" };
+}
+
+/**
+ * Quantas publicações a página diz que o perfil tem.
+ *
+ * Serve de denominador para o contador. Vem do JSON embutido quando existe, e
+ * do texto visível ("312 publicações") como último recurso.
+ */
+export function lerTotalDaPagina() {
+  const html = document.documentElement ? document.documentElement.innerHTML : "";
+
+  const doJson = html.match(/"edge_owner_to_timeline_media":\{"count":(\d+)/);
+  if (doJson) return { total: Number(doJson[1]), fonte: "json" };
+
+  const texto = document.body ? document.body.innerText || "" : "";
+  const doTexto = texto.match(/([\d.,]+)\s+publica/i);
+  if (doTexto) {
+    const limpo = Number(doTexto[1].replace(/[.,]/g, ""));
+    if (Number.isFinite(limpo) && limpo > 0) return { total: limpo, fonte: "texto" };
+  }
+  return { total: null, fonte: "nenhuma" };
 }
 
 /**

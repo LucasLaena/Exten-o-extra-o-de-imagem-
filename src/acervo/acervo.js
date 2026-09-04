@@ -163,12 +163,24 @@ async function indexar() {
   const coletor = criarColetor({
     executor,
     repo,
-    aoProgresso: ({ indexados, paginas, aviso }) =>
-      dizer(
-        aviso
-          ? `${aviso} (${numero(indexados)} até agora)`
-          : `Indexando… ${numero(indexados)} publicações, ${paginas} páginas`,
-      ),
+    aoProgresso: ({ indexados, paginas, total, aviso, rolando, paradas, limite }) => {
+      if (aviso) {
+        dizer(`${aviso} (${numero(indexados)} até agora)`);
+        return;
+      }
+
+      // Com o total declarado dá para dizer quanto falta; sem ele, só o quanto
+      // já veio. Nos dois casos o número precisa mudar, senão parece travado.
+      const quanto = total
+        ? `${numero(indexados)} de ~${numero(total)} (${Math.min(100, Math.round((indexados / total) * 100))}%)`
+        : `${numero(indexados)} publicações`;
+
+      const como = rolando
+        ? `rolando a página${paradas > 0 ? `, ${paradas}/${limite} rodadas sem novidade` : ""}`
+        : `${paginas} páginas`;
+
+      dizer(`Indexando… ${quanto} · ${como}`);
+    },
   });
 
   try {
@@ -182,10 +194,11 @@ async function indexar() {
       sinal: controle.signal,
     });
     const comoVeio = r.recuouParaRolagem ? " (coletado pela rolagem da página)" : "";
+    const doTotal = r.total ? ` de ~${numero(r.total)} que o perfil declara` : "";
     dizer(
       r.completo
-        ? `Catálogo completo: ${numero(r.indexados)} publicações.` + comoVeio
-        : `Parou em ${numero(r.indexados)}.` + comoVeio +
+        ? `Catálogo completo: ${numero(r.indexados)} publicações${doTotal}.` + comoVeio
+        : `Parou em ${numero(r.indexados)}${doTotal}.` + comoVeio +
           " Clique em Indexar perfil para continuar de onde parou.",
     );
   } catch (erro) {

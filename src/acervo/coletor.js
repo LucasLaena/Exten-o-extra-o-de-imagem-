@@ -4,6 +4,7 @@ import {
   capturaInstalada,
   buscarJson,
   lerPerfilDaPagina,
+  lerTotalDaPagina,
   sondarInstagram,
   rolarAteOFim,
   drenarCapturas,
@@ -11,7 +12,11 @@ import {
 
 export const ESPERA_MIN_MS = 800;
 export const ESPERA_MAX_MS = 2000;
-export const ROLAGENS_SEM_NOVIDADE = 4;
+export const ROLAGENS_SEM_NOVIDADE = 8;
+export const ESPERA_ROLAGEM_MIN_MS = 1200;
+export const ESPERA_ROLAGEM_MAX_MS = 2600;
+/** Teto absoluto de rolagens. Página que cresce sem parar não pode girar para sempre. */
+export const MAX_ROLAGENS = 500;
 export const POR_PAGINA = 12;
 
 /** Erro com texto pronto para a tela. */
@@ -36,6 +41,7 @@ export function criarColetor({
   esperar = dormir,
   aleatorio = Math.random,
   rolagensSemNovidade = ROLAGENS_SEM_NOVIDADE,
+  maxRolagens = MAX_ROLAGENS,
 }) {
   /** Acumula os posts de uma página, atribuindo seq e chave. Ignora repetidos. */
   function preparar(brutos, estado, profileKey) {
@@ -180,10 +186,11 @@ export function criarColetor({
       paginasSemNovidade = novos.length > 0 ? 0 : paginasSemNovidade + 1;
       if (paginasSemNovidade >= 2) estado.completo = true;
 
+      estado.totalDeclarado ??= perfil.total ?? null;
       await gravar(novos, estado, profileKey, {
         userId: perfil.userId,
         cursor: maxId,
-        totalDeclarado: perfil.total ?? null,
+        totalDeclarado: estado.totalDeclarado,
       });
 
       if (estado.completo || (teto != null && estado.indexados >= teto)) break;
@@ -202,12 +209,18 @@ export function criarColetor({
    */
   async function coletarRolando({ abaId, adaptador, profileKey, estado, teto, sinal }) {
     let semNovidade = 0;
+    let alturaAnterior = 0;
+    let rodadas = 0;
 
-    while (semNovidade < rolagensSemNovidade) {
+    while (semNovidade < rolagensSemNovidade && rodadas < maxRolagens) {
+      rodadas++;
       if (sinal?.aborted) break;
 
-      await executor.rodar(abaId, rolarAteOFim);
-      await esperar(esperaAleatoria(ESPERA_MIN_MS, ESPERA_MAX_MS, aleatorio), sinal);
+      const altura = await executor.rodar(abaId, rolarAteOFim);
+      await esperar(
+        esperaAleatoria(ESPERA_ROLAGEM_MIN_MS, ESPERA_ROLAGEM_MAX_MS, aleatorio),
+        sinal,
+      );
 
       const capturas = (await executor.rodar(abaId, drenarCapturas)) ?? [];
       estado.paginas += capturas.length;
@@ -223,7 +236,22 @@ export function criarColetor({
         await gravar(novos, estado, profileKey);
       }
 
-      semNovidade = novosNestaRodada > 0 ? 0 : semNovidade + 1;
+      // A página crescendo é sinal de que ainda está carregando, mesmo sem
+      // post novo nesta rodada. Sem isso a coleta desiste cedo demais.
+      // Na primeira rodada não há base de comparação: crescer em relação a
+      // zero não significa nada.
+      const cresceu = alturaAnterior > 0 && altura > alturaAnterior;
+      alturaAnterior = Math.max(alturaAnterior, altura);
+      semNovidade = novosNestaRodada > 0 || cresceu ? 0 : semNovidade + 1;
+
+      aoProgresso?.({
+        indexados: estado.indexados,
+        paginas: estado.paginas,
+        total: estado.totalDeclarado,
+        rolando: true,
+        paradas: semNovidade,
+        limite: rolagensSemNovidade,
+      });
 
       if (acabou) {
         estado.completo = true;
@@ -231,6 +259,10 @@ export function criarColetor({
       }
       if (teto != null && estado.indexados >= teto) break;
     }
+
+    // Sem post novo por várias rodadas seguidas, com a página parada de
+    // crescer: é o fim do feed. Só declara completo se algo chegou a entrar.
+    if (semNovidade >= rolagensSemNovidade && estado.indexados > 0) estado.completo = true;
 
     await repo.perfis.salvar({
       key: profileKey,
@@ -259,6 +291,9 @@ export function criarColetor({
     };
 
     try {
+      const daPagina = await executor.rodar(aba.abaId, lerTotalDaPagina);
+      estado.totalDeclarado = daPagina?.total ?? null;
+
       const temCaptura = await executor.rodar(aba.abaId, capturaInstalada);
       if (!temCaptura) {
         throw new ErroDeColeta(
@@ -272,7 +307,15 @@ export function criarColetor({
 
       if (adaptador.id === "instagram") {
         const r = await coletarInstagram(argumentos);
-        if (r?.recuar) await coletarRolando(argumentos);
+
+        // A rolagem fecha o que a API não alcançou: ou porque recuou, ou
+        // porque o catálogo ainda está menor que o total que o perfil declara.
+        const faltaGente =
+          estado.totalDeclarado != null && estado.indexados < estado.totalDeclarado;
+        if (r?.recuar || !estado.completo || faltaGente) {
+          estado.completo = false;
+          await coletarRolando(argumentos);
+        }
       } else {
         await coletarRolando(argumentos);
       }
@@ -284,6 +327,7 @@ export function criarColetor({
       indexados: estado.indexados,
       paginas: estado.paginas,
       completo: estado.completo,
+      total: estado.totalDeclarado,
       recuouParaRolagem: Boolean(estado.recuouParaRolagem),
     };
   }

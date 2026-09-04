@@ -446,6 +446,134 @@ describe("TikTok", () => {
   });
 });
 
+describe("contador e rolagem de fechamento", () => {
+  it("lê o total declarado e o entrega no resultado", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 312, fonte: "json" },
+      drenarCapturas: [],
+      lerPerfilDaPagina: { ok: true, userId: "1" },
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a"], null, false) },
+      rolarAteOFim: 1,
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 1 });
+    const r = await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(r.total).toBe(312);
+  });
+
+  it("informa o total no progresso, para dar denominador ao contador", async () => {
+    const repo = repoFalso();
+    const vistos = [];
+    let vez = 0;
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 50, fonte: "json" },
+      lerPerfilDaPagina: { ok: false },
+      sondarInstagram: { ok: false, status: 404 },
+      rolarAteOFim: 1,
+      drenarCapturas: () => {
+        vez++;
+        return vez === 2 ? [capturaIG(["a", "b"], false)] : [];
+      },
+    });
+
+    const coletor = criarColetor({
+      executor, repo, esperar: semEspera, rolagensSemNovidade: 2,
+      aoProgresso: (e) => { if (e.rolando) vistos.push(e); },
+    });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(vistos.length).toBeGreaterThan(0);
+    expect(vistos.at(-1).total).toBe(50);
+    expect(vistos.at(-1)).toHaveProperty("paradas");
+    expect(vistos.at(-1)).toHaveProperty("limite");
+  });
+
+  it("rola para fechar quando a API entregou menos que o total declarado", async () => {
+    const repo = repoFalso();
+    let vez = 0;
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 3, fonte: "json" },
+      lerPerfilDaPagina: { ok: true, userId: "1" },
+      // A API diz que acabou, mas entregou 1 de 3.
+      buscarJson: { ok: true, status: 200, json: paginaRest(["api1"], null, false) },
+      rolarAteOFim: 1,
+      drenarCapturas: () => {
+        vez++;
+        if (vez === 1) return [];
+        if (vez === 2) return [capturaIG(["rol1", "rol2"], false)];
+        return [];
+      },
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera, rolagensSemNovidade: 2 });
+    const r = await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(repo.posts.todos().map((p) => p.id)).toEqual(["api1", "rol1", "rol2"]);
+    expect(r.indexados).toBe(3);
+  });
+
+  it("não rola de novo quando a API já entregou tudo que o perfil declara", async () => {
+    const repo = repoFalso();
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: 2, fonte: "json" },
+      drenarCapturas: [],
+      lerPerfilDaPagina: { ok: true, userId: "1" },
+      buscarJson: { ok: true, status: 200, json: paginaRest(["a", "b"], null, false) },
+      rolarAteOFim: 1,
+    });
+
+    const coletor = criarColetor({ executor, repo, esperar: semEspera });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    expect(executor.chamadas.some((c) => c.nome === "rolarAteOFim")).toBe(false);
+  });
+
+  it("a página crescendo conta como progresso, mesmo sem post novo", async () => {
+    const repo = repoFalso();
+    let altura = 1000;
+    const executor = executorFalso({
+      capturaInstalada: true,
+      lerTotalDaPagina: { total: null },
+      lerPerfilDaPagina: { ok: false },
+      sondarInstagram: { ok: false, status: 404 },
+      drenarCapturas: [],
+      // Sem post novo, mas a página não para de crescer: ainda está carregando.
+      rolarAteOFim: () => (altura += 500),
+    });
+
+    const coletor = criarColetor({
+      executor, repo, esperar: semEspera, rolagensSemNovidade: 3, maxRolagens: 10,
+    });
+    await coletor.coletar({
+      adaptador: instagram, handle: "f", profileKey: "ig:@f",
+      urlDoPerfil: "https://www.instagram.com/f/",
+    });
+
+    // Enquanto cresce nao desiste, mas o teto absoluto impede girar para sempre.
+    const rolagens = executor.chamadas.filter((c) => c.nome === "rolarAteOFim").length;
+    expect(rolagens).toBeGreaterThan(3);
+    expect(rolagens).toBe(10);
+  });
+});
+
 describe("pré-requisitos", () => {
   it("avisa quando o script de captura não está na aba", async () => {
     const repo = repoFalso();
