@@ -86,11 +86,12 @@ export function iniciar() {
           profileKey,
           carregarCatalogo: (chave) =>
             chrome.runtime.sendMessage({ tipo: "catalogo", profileKey: chave }),
-          aoIndexar: (args) =>
+          aoIndexar: (pedido) =>
             chrome.runtime.sendMessage({
               tipo: "abrirAcervo",
-              perfil: args.profileKey,
+              perfil: pedido.profileKey,
               acao: "indexar",
+              pedido,
             }),
           aoAbrirAcervo: (args) =>
             chrome.runtime.sendMessage({ tipo: "abrirAcervo", perfil: args.profileKey }),

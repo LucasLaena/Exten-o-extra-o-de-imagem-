@@ -184,7 +184,7 @@ async function trocarAlvo(entrada, { redesenha = true } = {}) {
 
 // --- ações ------------------------------------------------------------------
 
-async function indexar() {
+async function indexar({ eDepoisBaixar = false } = {}) {
   if (!(await trocarAlvo($("urlPerfil").value, { redesenha: false }))) return;
 
   const controle = new AbortController();
@@ -248,6 +248,10 @@ async function indexar() {
     if (alvo?.ok) posts = await repo.posts.listarPorPerfil(alvo.profileKey);
     await redesenhar();
   }
+
+  // No caminho por faixa não há nada para escolher: buscar e baixar são o
+  // mesmo gesto, e parar no meio faria a aba virar trampolim de novo.
+  if (eDepoisBaixar && posts.length > 0 && !cancelador) await baixar();
 }
 
 async function diagnosticar() {
@@ -361,6 +365,40 @@ async function baixar() {
   }
 }
 
+/**
+ * Aplica nos controles o que o modal pediu.
+ *
+ * Sem isto o modal era decorativo: ele empacotava as escolhas na URL e esta
+ * aba as jogava fora, indexando sempre do mesmo jeito.
+ */
+function aplicarPedido(bruto) {
+  if (!bruto) return null;
+
+  let pedido;
+  try {
+    pedido = JSON.parse(bruto);
+  } catch {
+    return null;
+  }
+
+  const definir = (id, valor) => {
+    if (valor == null) return;
+    const campo = $(id);
+    if (campo.type === "checkbox") campo.checked = Boolean(valor);
+    else campo.value = String(valor);
+  };
+
+  definir("filtro", pedido.filtro);
+  definir("ordenacao", pedido.ordenacao);
+  definir("de", pedido.de);
+  definir("ate", pedido.ate);
+  definir("escopo", pedido.escopo);
+  definir("incluirCapaReel", pedido.incluirCapaReel);
+  definir("pularBaixados", pedido.pularBaixados);
+
+  return pedido;
+}
+
 // --- início -----------------------------------------------------------------
 
 async function iniciar() {
@@ -427,7 +465,16 @@ async function iniciar() {
     }
   });
 
-  if (params.get("acao") === "indexar") indexar();
+  const pedido = aplicarPedido(params.get("pedido"));
+  if (pedido) {
+    atualizarNotaDeEscopo();
+    await redesenhar();
+  }
+
+  // A aba abre já executando o que foi pedido, em vez de ser um trampolim.
+  const acao = params.get("acao");
+  if (acao === "indexar") indexar();
+  if (acao === "baixar") indexar({ eDepoisBaixar: true });
 }
 
 iniciar().catch((erro) => {

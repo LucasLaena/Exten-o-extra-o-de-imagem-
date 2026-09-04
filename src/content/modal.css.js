@@ -130,6 +130,50 @@ export function cssDoModal(plataforma) {
       cursor: pointer;
     }
 
+    /* --- os dois caminhos ------------------------------------------------- */
+
+    .caminhos {
+      display: grid;
+      gap: 8px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--acervo-linha);
+    }
+
+    .caminho {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--acervo-linha);
+      border-radius: 2px;
+      background: var(--acervo-papel);
+      cursor: pointer;
+    }
+
+    .caminho:has(input:checked) {
+      border-color: var(--acervo-verdete);
+      box-shadow: inset 0 0 0 1px var(--acervo-verdete);
+    }
+
+    .caminho input { grid-row: 1 / span 3; align-self: start; margin-top: 3px; }
+
+    .caminho-titulo { font-weight: 650; }
+
+    .caminho-detalhe {
+      font-size: 13px;
+      color: var(--acervo-grafite);
+      line-height: 1.45;
+    }
+
+    .caminho-custo {
+      margin-top: 4px;
+      font: var(--acervo-numeros);
+      font-size: 12px;
+      color: var(--acervo-alerta);
+    }
+
+    .caminho-custo[data-bom="1"] { color: var(--acervo-verdete-forte); }
+
     /* --- a régua: a única peça ousada do painel --------------------------- */
 
     .regua {

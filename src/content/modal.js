@@ -1,7 +1,9 @@
 import { ORDENACOES } from "../core/selection.js";
+import { extrairTotal, estimarTempo } from "../core/total-do-perfil.js";
 import { cssDoModal } from "./modal.css.js";
 
 export const ID_MODAL = "acervo-modal-hospedeiro";
+export const TEMPO_LIMITE_CATALOGO = 4000;
 
 const ROTULO_ORDENACAO = {
   sequencia: "Sequência do perfil",
@@ -12,9 +14,8 @@ const ROTULO_ORDENACAO = {
 };
 const ORDENACOES_DE_RELEVANCIA = new Set(["curtidas", "views"]);
 const ROTULO_FILTRO = { ambos: "Fotos e vídeos", fotos: "Só fotos", videos: "Só vídeos" };
-const ROTULO_MODO = { faixa: "Por faixa", manual: "Marcar uma a uma", tudo: "Tudo" };
 
-const numero = (n) => new Intl.NumberFormat("pt-BR").format(n);
+const numero = (n) => new Intl.NumberFormat("pt-BR").format(n ?? 0);
 
 export function estadoInicial() {
   return {
@@ -41,21 +42,9 @@ export function rotuloDoBotao(estado, catalogo, marcadas = 0) {
   return `Baixar publicações ${estado.de}–${estado.ate}`;
 }
 
-function aoTeclar(evento) {
-  if (evento.key === "Escape") fecharModal();
-}
-
-export function fecharModal() {
-  document.getElementById(ID_MODAL)?.remove();
-  document.removeEventListener("keydown", aoTeclar);
-}
-
-export const TEMPO_LIMITE_CATALOGO = 4000;
-
 /**
  * Lê o catálogo sem nunca travar a abertura do modal. Um modal que espera para
- * sempre é indistinguível de um botão quebrado — e foi exatamente assim que
- * isto falhou em produção.
+ * sempre é indistinguível de um botão quebrado.
  */
 async function lerCatalogo(carregarCatalogo, profileKey, tempoLimite) {
   const desconhecido = { totalIndexado: 0, completo: false, desconhecido: true };
@@ -67,6 +56,25 @@ async function lerCatalogo(carregarCatalogo, profileKey, tempoLimite) {
   }
 }
 
+function aoTeclar(evento) {
+  if (evento.key === "Escape") fecharModal();
+}
+
+export function fecharModal() {
+  document.getElementById(ID_MODAL)?.remove();
+  document.removeEventListener("keydown", aoTeclar);
+}
+
+/**
+ * O modal escolhe entre dois caminhos de custo muito diferente:
+ *
+ * - **Faixa**: busca só as N primeiras na ordem do perfil. Segundos.
+ * - **Filtros**: cataloga o perfil inteiro para poder ordenar por relevância.
+ *   Minutos, e é a única forma de saber qual é a mais vista.
+ *
+ * Mostrar o custo de cada um antes da escolha é o ponto: sem isso a pessoa
+ * escolhe às cegas entre cinco segundos e cinco minutos.
+ */
 export async function abrirModal({
   adaptador, handle, profileKey,
   carregarCatalogo, aoConfirmar, aoIndexar, aoAbrirAcervo,
@@ -76,7 +84,13 @@ export async function abrirModal({
 
   const catalogo = await lerCatalogo(carregarCatalogo, profileKey, tempoLimiteCatalogo);
   const estado = estadoInicial();
-  const relevanciaLiberada = podeOrdenarPorRelevancia(catalogo);
+
+  // O total sai da própria página: é o que permite dizer o custo de catalogar.
+  const totalDoPerfil = extrairTotal(
+    document.documentElement?.innerHTML ?? "",
+    document.body?.innerText ?? "",
+  );
+  const jaCatalogado = catalogo.completo && catalogo.totalIndexado > 0;
 
   const hospedeiro = document.createElement("div");
   hospedeiro.id = ID_MODAL;
@@ -86,11 +100,11 @@ export async function abrirModal({
   const estilo = document.createElement("style");
   estilo.textContent = cssDoModal(adaptador.id);
 
-  const opcao = (grupo, valor, rotulo, marcado) => `
-    <label>
-      <input type="radio" name="${grupo}" value="${valor}" ${marcado ? "checked" : ""} />
-      <span>${rotulo}</span>
-    </label>`;
+  const custoFiltros = jaCatalogado
+    ? `${numero(catalogo.totalIndexado)} já catalogadas — pronto para usar`
+    : totalDoPerfil
+      ? `catalogar ${numero(totalDoPerfil)} publicações, ${estimarTempo(totalDoPerfil)}`
+      : "cataloga o perfil inteiro primeiro";
 
   const painel = document.createElement("div");
   painel.className = "fundo";
@@ -99,70 +113,74 @@ export async function abrirModal({
       <header>
         <div>
           <h1>Acervo</h1>
-          <p class="perfil">@${handle}</p>
+          <p class="perfil">@${handle}${
+            totalDoPerfil ? ` · ${numero(totalDoPerfil)} publicações` : ""
+          }</p>
         </div>
         <button class="fechar" type="button" aria-label="Fechar">×</button>
       </header>
 
-      <p class="catalogo">
-        ${
-          catalogo.desconhecido
-            ? "Não consegui ler o catálogo. Abra o Acervo completo para ver o estado."
-            : `${numero(catalogo.totalIndexado)} publicações no catálogo${
-                catalogo.completo ? "" : ", ainda incompleto"
-              }`
-        }
-      </p>
+      <div class="caminhos" role="radiogroup" aria-label="Como escolher o que baixar">
+        <label class="caminho">
+          <input type="radio" name="caminho" value="faixa" checked />
+          <span class="caminho-titulo">Por faixa</span>
+          <span class="caminho-detalhe">
+            Da publicação X à Y, na ordem do perfil. Busca só o que você pediu.
+          </span>
+          <span class="caminho-custo" data-bom="1">buscar 100, poucos segundos</span>
+        </label>
+
+        <label class="caminho">
+          <input type="radio" name="caminho" value="filtros" />
+          <span class="caminho-titulo">Por filtros</span>
+          <span class="caminho-detalhe">
+            Ordenar por mais curtidas, mais vistas ou data, e escolher na grade.
+          </span>
+          <span class="caminho-custo" data-bom="${jaCatalogado ? "1" : "0"}">${custoFiltros}</span>
+        </label>
+      </div>
+
+      <section class="secao-faixa">
+        <h2>Quais publicações</h2>
+        <div class="regua" aria-hidden="true">
+          <span class="regua-inicio">1</span>
+          <div class="regua-trilho"><div class="regua-banda"></div></div>
+          <span class="regua-fim">${numero(totalDoPerfil ?? catalogo.totalIndexado)}</span>
+        </div>
+        <div class="campos-faixa">
+          <label>Da <input type="number" name="de" min="1" value="${estado.de}" /></label>
+          <label>até <input type="number" name="ate" min="1" value="${estado.ate}" /></label>
+        </div>
+      </section>
+
+      <section class="secao-filtros" hidden>
+        <h2>Ordenar por</h2>
+        <select name="ordenacao">
+          ${ORDENACOES.map(
+            (v) => `<option value="${v}">${ROTULO_ORDENACAO[v]}</option>`,
+          ).join("")}
+        </select>
+        <p class="aviso" ${jaCatalogado ? "hidden" : ""}>
+          Para ordenar por relevância é preciso catalogar o perfil inteiro antes —
+          as curtidas e visualizações não aparecem na grade.
+        </p>
+      </section>
 
       <section>
         <h2>Tipo de mídia</h2>
         <div class="opcoes">
-          ${["ambos", "fotos", "videos"]
-            .map((v) => opcao("filtro", v, ROTULO_FILTRO[v], v === estado.filtro))
-            .join("")}
+          ${["ambos", "fotos", "videos"].map((v) => `
+            <label>
+              <input type="radio" name="filtro" value="${v}" ${
+                v === estado.filtro ? "checked" : ""
+              } />
+              <span>${ROTULO_FILTRO[v]}</span>
+            </label>`).join("")}
         </div>
         <label class="linha">
           <input type="checkbox" name="incluirCapaReel" />
           <span>Incluir a capa junto com cada vídeo</span>
         </label>
-      </section>
-
-      <section>
-        <h2>O que baixar</h2>
-        <div class="opcoes">
-          ${["faixa", "manual", "tudo"]
-            .map((v) => opcao("modo", v, ROTULO_MODO[v], v === estado.modo))
-            .join("")}
-        </div>
-
-        <div class="campos-faixa-grupo">
-          <div class="regua" aria-hidden="true">
-            <span class="regua-inicio">1</span>
-            <div class="regua-trilho"><div class="regua-banda"></div></div>
-            <span class="regua-fim">${numero(catalogo.totalIndexado)}</span>
-          </div>
-          <div class="campos-faixa">
-            <label>Da <input type="number" name="de" min="1" value="${estado.de}" /></label>
-            <label>até <input type="number" name="ate" min="1" value="${estado.ate}" /></label>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2>Ordenar por</h2>
-        <select name="ordenacao">
-          ${ORDENACOES.map(
-            (v) => `<option value="${v}" ${
-              ORDENACOES_DE_RELEVANCIA.has(v) && !relevanciaLiberada ? "disabled" : ""
-            }>${ROTULO_ORDENACAO[v]}</option>`,
-          ).join("")}
-        </select>
-        ${
-          relevanciaLiberada
-            ? ""
-            : `<p class="aviso">Para ordenar por curtidas ou visualizações é preciso
-                 indexar o perfil inteiro antes — as métricas não aparecem na grade.</p>`
-        }
         <label class="linha">
           <input type="checkbox" name="pularBaixados" checked />
           <span>Pular o que já foi baixado</span>
@@ -172,7 +190,6 @@ export async function abrirModal({
       <footer>
         <button class="confirmar" type="button"></button>
         <div class="secundarios">
-          <button class="indexar" type="button">Indexar perfil inteiro</button>
           <button class="abrir-acervo" type="button">Abrir Acervo completo</button>
         </div>
       </footer>
@@ -184,37 +201,40 @@ export async function abrirModal({
 
   const $ = (sel) => sombra.querySelector(sel);
   const confirmar = $(".confirmar");
-  const camposFaixa = $(".campos-faixa");
-  const grupoFaixa = $(".campos-faixa-grupo");
   const banda = $(".regua-banda");
+  let caminho = "faixa";
 
-  /**
-   * A régua traduz "do 500 ao 1000" para o que a pessoa está de fato pensando:
-   * uma janela dentro do total. Dois campos numéricos soltos não mostram isso.
-   */
+  /** A régua traduz a faixa para o que a pessoa está pensando: uma janela. */
   const desenharRegua = () => {
-    const total = Math.max(1, catalogo.totalIndexado);
+    const total = Math.max(1, totalDoPerfil ?? catalogo.totalIndexado ?? 1);
     const inicio = Math.max(1, Math.min(estado.de, estado.ate));
     const fim = Math.min(total, Math.max(estado.de, estado.ate));
-
-    const esquerda = ((inicio - 1) / total) * 100;
-    const largura = Math.max(0, ((fim - inicio + 1) / total) * 100);
-
-    banda.style.left = `${esquerda}%`;
-    banda.style.width = `${largura}%`;
+    banda.style.left = `${((inicio - 1) / total) * 100}%`;
+    banda.style.width = `${Math.max(0, ((fim - inicio + 1) / total) * 100)}%`;
   };
 
   const redesenhar = () => {
-    const ehFaixa = estado.modo === "faixa";
-    camposFaixa.hidden = !ehFaixa;
-    grupoFaixa.hidden = !ehFaixa;
-    confirmar.textContent = rotuloDoBotao(estado, catalogo);
+    const ehFaixa = caminho === "faixa";
+    $(".secao-faixa").hidden = !ehFaixa;
+    $(".secao-filtros").hidden = ehFaixa;
+
+    if (ehFaixa) {
+      const quantas = Math.abs(estado.ate - estado.de) + 1;
+      $(".caminho-custo").textContent =
+        `buscar ${numero(quantas)}, ${estimarTempo(quantas)}`;
+      confirmar.textContent = `Baixar publicações ${estado.de}–${estado.ate}`;
+    } else {
+      confirmar.textContent = jaCatalogado
+        ? "Abrir o Acervo para escolher"
+        : "Catalogar o perfil e abrir o Acervo";
+    }
     desenharRegua();
   };
 
   painel.addEventListener("change", (evento) => {
     const alvo = evento.target;
-    if (alvo.name === "filtro" || alvo.name === "modo") estado[alvo.name] = alvo.value;
+    if (alvo.name === "caminho") caminho = alvo.value;
+    else if (alvo.name === "filtro") estado.filtro = alvo.value;
     else if (alvo.name === "ordenacao") estado.ordenacao = alvo.value;
     else if (alvo.type === "checkbox") estado[alvo.name] = alvo.checked;
     redesenhar();
@@ -229,11 +249,22 @@ export async function abrirModal({
   });
 
   $(".fechar").addEventListener("click", fecharModal);
-  $(".indexar").addEventListener("click", () => aoIndexar({ profileKey, adaptador, handle }));
   $(".abrir-acervo").addEventListener("click", () => aoAbrirAcervo({ profileKey }));
-  confirmar.addEventListener("click", () => aoConfirmar({ ...estado, profileKey, handle }));
-  document.addEventListener("keydown", aoTeclar);
 
+  confirmar.addEventListener("click", () => {
+    const pedido = { ...estado, profileKey, handle, caminho };
+
+    if (caminho === "faixa") {
+      // Ordem do perfil e faixa fechada: dá para buscar só o pedido, sem
+      // varrer as 2.000 publicações do perfil.
+      aoConfirmar({ ...pedido, ordenacao: "sequencia", modo: "faixa", escopo: "faixa" });
+    } else {
+      aoIndexar({ ...pedido, modo: "faixa", escopo: "tudo" });
+    }
+    fecharModal();
+  });
+
+  document.addEventListener("keydown", aoTeclar);
   redesenhar();
   return hospedeiro;
 }

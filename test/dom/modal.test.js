@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  ID_MODAL, estadoInicial, podeOrdenarPorRelevancia, rotuloDoBotao,
-  abrirModal, fecharModal,
+  ID_MODAL, estadoInicial, podeOrdenarPorRelevancia, abrirModal, fecharModal,
 } from "../../src/content/modal.js";
 import { instagram } from "../../src/adapters/instagram.js";
 
@@ -23,7 +22,17 @@ const raiz = () => document.getElementById(ID_MODAL)?.shadowRoot;
 const $ = (sel) => raiz().querySelector(sel);
 const $$ = (sel) => [...raiz().querySelectorAll(sel)];
 
-beforeEach(() => { fecharModal(); document.body.innerHTML = ""; });
+const escolherCaminho = (valor) => {
+  const opcao = $$('[name="caminho"]').find((e) => e.value === valor);
+  opcao.checked = true;
+  opcao.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
+beforeEach(() => {
+  fecharModal();
+  document.body.innerHTML = "";
+  document.documentElement.innerHTML = "<head></head><body></body>";
+});
 
 describe("estadoInicial", () => {
   it("começa com os padrões da spec", () => {
@@ -35,142 +44,127 @@ describe("estadoInicial", () => {
 });
 
 describe("podeOrdenarPorRelevancia", () => {
-  it("exige catálogo completo", () => {
+  it("exige catálogo completo e não vazio", () => {
     expect(podeOrdenarPorRelevancia(catalogo({ completo: true }))).toBe(true);
     expect(podeOrdenarPorRelevancia(catalogo({ completo: false }))).toBe(false);
-  });
-
-  it("catálogo vazio não serve", () => {
     expect(podeOrdenarPorRelevancia({ totalIndexado: 0, completo: true })).toBe(false);
     expect(podeOrdenarPorRelevancia(null)).toBe(false);
   });
 });
 
-describe("rotuloDoBotao", () => {
-  it("diz a faixa exata", () => {
-    expect(rotuloDoBotao({ ...estadoInicial(), de: 500, ate: 1000 }, catalogo()))
-      .toBe("Baixar publicações 500–1000");
+describe("os dois caminhos", () => {
+  it("oferece faixa e filtros, com a faixa marcada por padrão", async () => {
+    await abrir();
+    expect($$('[name="caminho"]').map((e) => e.value)).toEqual(["faixa", "filtros"]);
+    expect($$('[name="caminho"]').find((e) => e.value === "faixa").checked).toBe(true);
   });
 
-  it("diz quantas foram marcadas no modo manual", () => {
-    expect(rotuloDoBotao({ ...estadoInicial(), modo: "manual" }, catalogo(), 12))
-      .toBe("Baixar 12 marcadas");
+  it("mostra os campos de faixa e esconde os filtros no caminho da faixa", async () => {
+    await abrir();
+    expect($(".secao-faixa").hidden).toBe(false);
+    expect($(".secao-filtros").hidden).toBe(true);
   });
 
-  it("diz o total no modo tudo", () => {
-    expect(rotuloDoBotao({ ...estadoInicial(), modo: "tudo" }, catalogo()))
-      .toBe("Baixar tudo (3.000)");
-  });
-
-  it("avisa quando não há nada selecionado", () => {
-    expect(rotuloDoBotao({ ...estadoInicial(), modo: "manual" }, catalogo(), 0))
-      .toBe("Nenhuma publicação marcada");
+  it("troca as seções ao escolher filtros", async () => {
+    await abrir();
+    escolherCaminho("filtros");
+    expect($(".secao-faixa").hidden).toBe(true);
+    expect($(".secao-filtros").hidden).toBe(false);
   });
 });
 
-describe("abrirModal quando o catálogo não responde", () => {
-  it("abre mesmo assim quando a consulta falha", async () => {
-    await abrir({ carregarCatalogo: async () => { throw new Error("service worker mudo"); } });
-    expect(raiz()).toBeTruthy();
-    expect($(".confirmar")).toBeTruthy();
+describe("custo de cada caminho", () => {
+  it("diz quantas a faixa vai buscar, e que é rápido", async () => {
+    await abrir();
+    expect($(".caminho-custo").textContent).toMatch(/buscar 100/);
+    expect($(".caminho-custo").textContent).toMatch(/segundos/);
   });
 
-  it("abre mesmo assim quando a consulta nunca resolve", async () => {
-    // Um modal que espera para sempre é indistinguível de um botão quebrado.
-    await abrir({
-      carregarCatalogo: () => new Promise(() => {}),
-      tempoLimiteCatalogo: 20,
-    });
-    expect(raiz()).toBeTruthy();
+  it("recalcula o custo ao mexer na faixa", async () => {
+    await abrir();
+    const ate = $('[name="ate"]');
+    ate.value = "500";
+    ate.dispatchEvent(new Event("input", { bubbles: true }));
+    expect($(".caminho-custo").textContent).toMatch(/buscar 500/);
   });
 
-  it("diz que o catálogo é desconhecido em vez de mentir zero", async () => {
-    await abrir({ carregarCatalogo: async () => { throw new Error("x"); } });
-    expect(raiz().textContent.toLowerCase()).toContain("não consegui ler o catálogo");
+  it("diz o custo de catalogar quando a página informa o total", async () => {
+    document.documentElement.innerHTML =
+      '<head></head><body>{"edge_owner_to_timeline_media":{"count":2000}}</body>';
+    await abrir({ carregarCatalogo: async () => catalogo({ completo: false, totalIndexado: 0 }) });
+    const custos = $$(".caminho-custo").map((e) => e.textContent);
+    expect(custos[1]).toMatch(/catalogar 2\.000/);
+    expect(custos[1]).toMatch(/min|s\b/);
   });
 
-  it("não deixa ordenar por relevância sem saber o catálogo", async () => {
-    await abrir({ carregarCatalogo: async () => { throw new Error("x"); } });
-    const opcoes = $$('[name="ordenacao"] option');
-    expect(opcoes.find((o) => o.value === "views").disabled).toBe(true);
+  it("diz que já está pronto quando o perfil foi catalogado antes", async () => {
+    await abrir({ carregarCatalogo: async () => catalogo({ completo: true, totalIndexado: 3000 }) });
+    const custos = $$(".caminho-custo").map((e) => e.textContent);
+    expect(custos[1]).toMatch(/já catalogadas/i);
+    expect($$(".caminho-custo")[1].dataset.bom).toBe("1");
+  });
+
+  it("marca o custo de catalogar como caro quando ainda não foi feito", async () => {
+    await abrir({ carregarCatalogo: async () => catalogo({ completo: false, totalIndexado: 0 }) });
+    expect($$(".caminho-custo")[1].dataset.bom).toBe("0");
   });
 });
 
-describe("abrirModal", () => {
-  it("monta em Shadow DOM e mostra o perfil", async () => {
+describe("o que o botão faz", () => {
+  it("no caminho da faixa, pede para baixar direto, sem catalogar tudo", async () => {
+    const aoConfirmar = vi.fn();
+    const aoIndexar = vi.fn();
+    await abrir({ aoConfirmar, aoIndexar });
+
+    $(".confirmar").click();
+
+    expect(aoIndexar).not.toHaveBeenCalled();
+    expect(aoConfirmar).toHaveBeenCalledWith(expect.objectContaining({
+      caminho: "faixa",
+      escopo: "faixa",
+      ordenacao: "sequencia",
+      modo: "faixa",
+      de: 1,
+      ate: 100,
+      profileKey: "ig:@fulano",
+    }));
+  });
+
+  it("no caminho dos filtros, manda catalogar o perfil inteiro", async () => {
+    const aoConfirmar = vi.fn();
+    const aoIndexar = vi.fn();
+    await abrir({ aoConfirmar, aoIndexar });
+
+    escolherCaminho("filtros");
+    const ordenacao = $('[name="ordenacao"]');
+    ordenacao.value = "views";
+    ordenacao.dispatchEvent(new Event("change", { bubbles: true }));
+
+    $(".confirmar").click();
+
+    expect(aoConfirmar).not.toHaveBeenCalled();
+    expect(aoIndexar).toHaveBeenCalledWith(expect.objectContaining({
+      caminho: "filtros",
+      escopo: "tudo",
+      ordenacao: "views",
+    }));
+  });
+
+  it("o rótulo do botão diz o que vai acontecer em cada caminho", async () => {
+    await abrir({ carregarCatalogo: async () => catalogo({ completo: false, totalIndexado: 0 }) });
+    expect($(".confirmar").textContent).toBe("Baixar publicações 1–100");
+
+    escolherCaminho("filtros");
+    expect($(".confirmar").textContent).toMatch(/catalogar/i);
+  });
+
+  it("com o perfil já catalogado, filtros só abre o Acervo", async () => {
     await abrir();
-    expect(raiz()).toBeTruthy();
-    expect(raiz().textContent).toContain("fulano");
+    escolherCaminho("filtros");
+    expect($(".confirmar").textContent).toMatch(/abrir o acervo/i);
   });
 
-  it("mostra o estado do catálogo", async () => {
-    await abrir({ carregarCatalogo: async () => catalogo({ totalIndexado: 1240, completo: false }) });
-    expect(raiz().textContent).toContain("1.240");
-  });
-
-  it("tem as três opções de mídia e o toggle de capa", async () => {
-    await abrir();
-    expect($$('[name="filtro"]').map((e) => e.value)).toEqual(["ambos", "fotos", "videos"]);
-    expect($('[name="incluirCapaReel"]')).toBeTruthy();
-  });
-
-  it("tem os três modos de seleção", async () => {
-    await abrir();
-    expect($$('[name="modo"]').map((e) => e.value)).toEqual(["faixa", "manual", "tudo"]);
-  });
-
-  it("tem as cinco ordenações", async () => {
-    await abrir();
-    expect($$('[name="ordenacao"] option').map((o) => o.value))
-      .toEqual(["sequencia", "curtidas", "views", "recentes", "antigos"]);
-  });
-
-  it("desabilita relevância com o motivo escrito quando o catálogo está incompleto", async () => {
-    await abrir({ carregarCatalogo: async () => catalogo({ completo: false, totalIndexado: 400 }) });
-    const opcoes = $$('[name="ordenacao"] option');
-    expect(opcoes.find((o) => o.value === "curtidas").disabled).toBe(true);
-    expect(opcoes.find((o) => o.value === "views").disabled).toBe(true);
-    expect(opcoes.find((o) => o.value === "sequencia").disabled).toBe(false);
-    expect(raiz().textContent.toLowerCase()).toContain("indexar o perfil inteiro");
-  });
-
-  it("libera relevância com catálogo completo", async () => {
-    await abrir();
-    const opcoes = $$('[name="ordenacao"] option');
-    expect(opcoes.every((o) => !o.disabled)).toBe(true);
-  });
-
-  it("atualiza o rótulo do botão ao mexer na faixa", async () => {
-    await abrir();
-    const de = $('[name="de"]');
-    const ate = $('[name="ate"]');
-    de.value = "500"; de.dispatchEvent(new Event("input", { bubbles: true }));
-    ate.value = "1000"; ate.dispatchEvent(new Event("input", { bubbles: true }));
-    expect($(".confirmar").textContent).toBe("Baixar publicações 500–1000");
-  });
-
-  it("a régua mostra a janela selecionada dentro do total", async () => {
-    await abrir();
-    const de = $('[name="de"]');
-    const ate = $('[name="ate"]');
-    de.value = "1500"; de.dispatchEvent(new Event("input", { bubbles: true }));
-    ate.value = "3000"; ate.dispatchEvent(new Event("input", { bubbles: true }));
-
-    const banda = $(".regua-banda");
-    // metade final do catálogo: começa nos 50% e ocupa 50%
-    expect(parseFloat(banda.style.left)).toBeCloseTo(50, 0);
-    expect(parseFloat(banda.style.width)).toBeCloseTo(50, 0);
-  });
-
-  it("esconde os campos de faixa no modo tudo", async () => {
-    await abrir();
-    const tudo = $$('[name="modo"]').find((e) => e.value === "tudo");
-    tudo.checked = true;
-    tudo.dispatchEvent(new Event("change", { bubbles: true }));
-    expect($(".campos-faixa").hidden).toBe(true);
-  });
-
-  it("entrega o estado completo ao confirmar", async () => {
+  it("leva o tipo de mídia junto nos dois caminhos", async () => {
     const aoConfirmar = vi.fn();
     await abrir({ aoConfirmar });
 
@@ -178,30 +172,44 @@ describe("abrirModal", () => {
     soVideos.checked = true;
     soVideos.dispatchEvent(new Event("change", { bubbles: true }));
 
-    const ordenacao = $('[name="ordenacao"]');
-    ordenacao.value = "views";
-    ordenacao.dispatchEvent(new Event("change", { bubbles: true }));
-
     $(".confirmar").click();
-
-    expect(aoConfirmar).toHaveBeenCalledWith(expect.objectContaining({
-      filtro: "videos", ordenacao: "views", modo: "faixa", de: 1, ate: 100,
-      profileKey: "ig:@fulano",
-    }));
+    expect(aoConfirmar).toHaveBeenCalledWith(expect.objectContaining({ filtro: "videos" }));
   });
 
-  it("dispara a indexação pelo botão próprio", async () => {
-    const aoIndexar = vi.fn();
-    await abrir({ aoIndexar });
-    $(".indexar").click();
-    expect(aoIndexar).toHaveBeenCalledOnce();
+  it("fecha depois de confirmar, em vez de ficar no caminho", async () => {
+    await abrir();
+    $(".confirmar").click();
+    expect(document.getElementById(ID_MODAL)).toBeNull();
+  });
+});
+
+describe("a régua", () => {
+  it("mostra a janela dentro do total do perfil", async () => {
+    document.documentElement.innerHTML =
+      '<head></head><body>{"edge_owner_to_timeline_media":{"count":1000}}</body>';
+    await abrir();
+
+    const de = $('[name="de"]');
+    const ate = $('[name="ate"]');
+    de.value = "500"; de.dispatchEvent(new Event("input", { bubbles: true }));
+    ate.value = "1000"; ate.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const banda = $(".regua-banda");
+    expect(parseFloat(banda.style.left)).toBeCloseTo(49.9, 0);
+    expect(parseFloat(banda.style.width)).toBeCloseTo(50.1, 0);
+  });
+});
+
+describe("resiliência e fechamento", () => {
+  it("abre mesmo quando a consulta do catálogo falha", async () => {
+    await abrir({ carregarCatalogo: async () => { throw new Error("mudo"); } });
+    expect(raiz()).toBeTruthy();
+    expect($(".confirmar")).toBeTruthy();
   });
 
-  it("abre o Acervo completo pelo link", async () => {
-    const aoAbrirAcervo = vi.fn();
-    await abrir({ aoAbrirAcervo });
-    $(".abrir-acervo").click();
-    expect(aoAbrirAcervo).toHaveBeenCalledOnce();
+  it("abre mesmo quando a consulta nunca resolve", async () => {
+    await abrir({ carregarCatalogo: () => new Promise(() => {}), tempoLimiteCatalogo: 20 });
+    expect(raiz()).toBeTruthy();
   });
 
   it("fecha no X e no Esc", async () => {
@@ -218,6 +226,13 @@ describe("abrirModal", () => {
     await abrir();
     await abrir();
     expect(document.querySelectorAll(`#${ID_MODAL}`)).toHaveLength(1);
+  });
+
+  it("abre o Acervo completo pelo link", async () => {
+    const aoAbrirAcervo = vi.fn();
+    await abrir({ aoAbrirAcervo });
+    $(".abrir-acervo").click();
+    expect(aoAbrirAcervo).toHaveBeenCalledOnce();
   });
 
   it("escreve tudo em português", async () => {
