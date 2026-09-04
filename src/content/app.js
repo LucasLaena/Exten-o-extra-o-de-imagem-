@@ -1,6 +1,7 @@
 import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
+import { criarMensageiro } from "./vida.js";
 
 export const INTERVALO_SONDAGEM_MS = 400;
 
@@ -65,7 +66,24 @@ export function observarNavegacao(aoMudar) {
  * silêncio.
  */
 export function iniciar() {
-  observarNavegacao((url) => {
+  let pararDeObservar = null;
+
+  /**
+   * A extensão foi recarregada e este script ficou órfão. Sair de cena é o
+   * certo: um botão que parece funcional e não faz nada é pior que nenhum.
+   */
+  const desmontar = () => {
+    pararDeObservar?.();
+    fecharModal();
+    desmontarBotao();
+    console.info(
+      "[Acervo] a extensão foi recarregada; recarregue esta página (F5) para usar de novo.",
+    );
+  };
+
+  const enviar = criarMensageiro(chrome, desmontar);
+
+  pararDeObservar = observarNavegacao((url) => {
     const adaptador = adaptadorDaUrl(url);
     if (!adaptador) {
       fecharModal();
@@ -84,19 +102,18 @@ export function iniciar() {
           adaptador,
           handle,
           profileKey,
-          carregarCatalogo: (chave) =>
-            chrome.runtime.sendMessage({ tipo: "catalogo", profileKey: chave }),
+          carregarCatalogo: (chave) => enviar({ tipo: "catalogo", profileKey: chave }),
           aoIndexar: (pedido) =>
-            chrome.runtime.sendMessage({
+            enviar({
               tipo: "abrirAcervo",
               perfil: pedido.profileKey,
               acao: "indexar",
               pedido,
             }),
           aoAbrirAcervo: (args) =>
-            chrome.runtime.sendMessage({ tipo: "abrirAcervo", perfil: args.profileKey }),
+            enviar({ tipo: "abrirAcervo", perfil: args.profileKey }),
           aoConfirmar: (pedido) =>
-            chrome.runtime.sendMessage({
+            enviar({
               tipo: "abrirAcervo",
               perfil: pedido.profileKey,
               acao: "baixar",
