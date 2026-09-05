@@ -219,7 +219,7 @@ function avisarRecuo(motivo) {
   const nota = $("recuo");
   nota.hidden = false;
   nota.textContent =
-    `A busca sem aba não deu conta: ${motivo} Por isso a aba do perfil abriu. ` +
+    `A busca em segundo plano não deu conta: ${motivo} ` +
     "Clique em Diagnóstico para ver os detalhes.";
 }
 

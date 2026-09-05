@@ -1,7 +1,8 @@
 import { dormir } from "../core/queue.js";
 import { montarAssinatura, pareceFeed } from "../core/assinatura.js";
 
-export const TENTATIVAS = 24;
+export const TENTATIVAS = 60;
+export const CUTUCAR_APOS = 4;
 export const ESPERA_MS = 500;
 
 /** Falha ao aprender a consulta. Sempre recuperável: a rolagem ainda resta. */
@@ -64,6 +65,11 @@ export function criarAprendiz({
 
         return { assinatura, pagina: adaptador.parsear(captura.json) };
       }
+
+      // Algumas paginas so consultam o feed quando a grade e alcancada.
+      // O cutucao acontece na aba escondida e nao substitui a paginacao: ele
+      // so arranca a primeira requisicao, que e a que ensina a consulta.
+      if (tentativa >= CUTUCAR_APOS) await canal.cutucar?.();
 
       aoProgresso?.({ aviso: `Lendo a consulta do perfil… (${tentativa}/${tentativas})` });
       await esperar(ESPERA_MS, sinal);

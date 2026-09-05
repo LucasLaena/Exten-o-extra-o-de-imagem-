@@ -1,4 +1,4 @@
-import { buscarJson, drenarCapturas } from "./sondas.js";
+import { buscarJson, drenarCapturas, rolarUmPouco } from "./sondas.js";
 
 /**
  * Uma aba escondida e parada, usada só como endereço de rede.
@@ -17,7 +17,10 @@ import { buscarJson, drenarCapturas } from "./sondas.js";
  * @param {{ executor: object, urlDoPerfil: string }} args
  */
 export async function abrirCanal({ executor, urlDoPerfil }) {
-  const aba = await executor.acharOuAbrirAba(urlDoPerfil, { visivel: false });
+  const aba = await executor.acharOuAbrirAba(urlDoPerfil, {
+    visivel: false,
+    reusar: false,
+  });
 
   /** Mesma forma de `fetch`, para o coletor não saber que é por aba. */
   async function buscar(url, init) {
@@ -37,6 +40,13 @@ export async function abrirCanal({ executor, urlDoPerfil }) {
     buscar,
     async drenar() {
       return (await executor.rodar(aba.abaId, drenarCapturas)) ?? [];
+    },
+    async cutucar() {
+      try {
+        await executor.rodar(aba.abaId, rolarUmPouco, [1, 0]);
+      } catch {
+        // cutucao e opcional: a pagina pode ja ter consultado sozinha
+      }
     },
     async fechar() {
       await executor.fecharSeCriada(aba);

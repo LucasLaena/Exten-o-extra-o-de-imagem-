@@ -19,7 +19,7 @@ describe("canal por aba escondida", () => {
     await abrir(ex);
     expect(ex.acharOuAbrirAba).toHaveBeenCalledWith(
       "https://www.instagram.com/fulano/",
-      { visivel: false },
+      { visivel: false, reusar: false },
     );
   });
 
@@ -65,5 +65,24 @@ describe("canal por aba escondida", () => {
     const canal = await abrir(ex);
     await canal.fechar();
     expect(ex.fecharSeCriada).toHaveBeenCalledWith({ abaId: 5, criada: true });
+  });
+});
+
+describe("cutucao", () => {
+  it("pede a rolagem minima dentro da aba escondida", async () => {
+    const ex = executorFalso();
+    const canal = await abrir(ex);
+    await canal.cutucar();
+
+    const chamada = ex.rodar.mock.calls.at(-1);
+    expect(chamada[0]).toBe(5);
+    expect(chamada[2]).toEqual([1, 0]);
+  });
+
+  it("falhar no cutucao nao derruba a coleta", async () => {
+    const ex = executorFalso();
+    ex.rodar.mockRejectedValue(new Error("aba sumiu"));
+    const canal = await abrir(ex);
+    await expect(canal.cutucar()).resolves.toBeUndefined();
   });
 });

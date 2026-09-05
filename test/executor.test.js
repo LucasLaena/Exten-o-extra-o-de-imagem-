@@ -125,6 +125,23 @@ describe("acharOuAbrirAba", () => {
     });
   });
 
+  it("abre aba nova quando reusar e false, mesmo havendo uma aberta", () => {
+    // Quem precisa ver a consulta que a pagina dispara ao carregar nao pode
+    // receber uma aba parada ha horas: ela nao vai requisitar mais nada.
+    return (async () => {
+      const api = apiFalsa();
+      api.tabs.query.mockResolvedValue([{ id: 7, url: "https://www.instagram.com/fulano/" }]);
+      const ex = criarExecutor(api, { esperar: semEspera });
+
+      const r = await ex.acharOuAbrirAba("https://www.instagram.com/fulano/", {
+        reusar: false,
+      });
+
+      expect(api.tabs.create).toHaveBeenCalled();
+      expect(r).toEqual({ abaId: 5, criada: true });
+    })();
+  });
+
   it("aceita abrir escondida quando pedido", async () => {
     const api = apiFalsa();
     const ex = criarExecutor(api, { esperar: semEspera });

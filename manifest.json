@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Acervo",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "Cataloga perfis do Instagram e TikTok e baixa publicacoes em lote.",
   "permissions": [
     "storage",

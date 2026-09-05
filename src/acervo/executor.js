@@ -113,10 +113,19 @@ export function criarExecutor(api, opcoes = {}) {
    * o IntersectionObserver que dispara o carregamento contínuo, e o feed
    * nunca chega a se preencher.
    */
-  async function acharOuAbrirAba(urlDoPerfil, { visivel = true } = {}) {
-    const abertas = await api.tabs.query({ url: ["*://*.instagram.com/*", "*://*.tiktok.com/*"] });
-    const existente = abertas.find((a) => mesmoPerfil(a.url, urlDoPerfil));
-    if (existente) return { abaId: existente.id, criada: false };
+  /**
+   * @param {string} urlDoPerfil
+   * @param {{ visivel?: boolean, reusar?: boolean }} opcoes
+   *   reusar:false forca uma aba nova. Quem precisa ver a consulta que a
+   *   pagina dispara ao carregar depende disso: uma aba que o usuario deixou
+   *   aberta ha horas ja fez suas requisicoes e nao fara outras parada.
+   */
+  async function acharOuAbrirAba(urlDoPerfil, { visivel = true, reusar = true } = {}) {
+    if (reusar) {
+      const abertas = await api.tabs.query({ url: ["*://*.instagram.com/*", "*://*.tiktok.com/*"] });
+      const existente = abertas.find((a) => mesmoPerfil(a.url, urlDoPerfil));
+      if (existente) return { abaId: existente.id, criada: false };
+    }
 
     const nova = await api.tabs.create({ url: urlDoPerfil, active: visivel });
     await esperarCarregar(nova.id);

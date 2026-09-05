@@ -29,6 +29,7 @@ function canalFalso({ capturas = [[capturaBoa()]] } = {}) {
   let n = 0;
   return {
     drenar: vi.fn(async () => capturas[Math.min(n++, capturas.length - 1)]),
+    cutucar: vi.fn(async () => {}),
   };
 }
 
@@ -86,5 +87,19 @@ describe("aprender a consulta com uma passada pela aba", () => {
     });
     const r = await aprender(canal);
     expect(r.pagina.itens).toHaveLength(1);
+  });
+});
+
+describe("quando a pagina demora a consultar", () => {
+  it("cutuca a aba escondida depois de algumas tentativas em branco", async () => {
+    const canal = canalFalso({ capturas: [[], [], [], [], [], [capturaBoa()]] });
+    await aprender(canal);
+    expect(canal.cutucar).toHaveBeenCalled();
+  });
+
+  it("nao cutuca quando a consulta aparece de primeira", async () => {
+    const canal = canalFalso();
+    await aprender(canal);
+    expect(canal.cutucar).not.toHaveBeenCalled();
   });
 });
