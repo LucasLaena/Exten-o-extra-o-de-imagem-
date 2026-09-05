@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Acervo",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "Cataloga perfis do Instagram e TikTok e baixa publicacoes em lote.",
-  "permissions": ["storage", "downloads", "declarativeNetRequest", "tabs", "scripting"],
+  "permissions": [
+    "storage",
+    "downloads",
+    "declarativeNetRequest",
+    "tabs",
+    "scripting"
+  ],
   "host_permissions": [
     "*://*.instagram.com/*",
     "*://*.cdninstagram.com/*",
@@ -12,31 +18,59 @@
     "*://*.tiktokcdn.com/*",
     "*://*.tiktokcdn-us.com/*"
   ],
-  "background": { "service_worker": "src/background/sw.js", "type": "module" },
-  "action": { "default_title": "Acervo" },
+  "background": {
+    "service_worker": "src/background/sw.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Acervo"
+  },
   "content_scripts": [
     {
-      "matches": ["*://*.instagram.com/*", "*://*.tiktok.com/*"],
-      "js": ["src/page/captura.js"],
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": [
+        "src/page/captura.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.instagram.com/*", "*://*.tiktok.com/*"],
-      "js": ["src/content/boot.js"],
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": [
+        "src/content/boot.js"
+      ],
       "world": "ISOLATED",
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/acervo/*", "src/content/*", "src/core/*", "src/adapters/*", "src/vendor/*"],
-      "matches": ["*://*.instagram.com/*", "*://*.tiktok.com/*"]
+      "resources": [
+        "src/acervo/*",
+        "src/content/*",
+        "src/core/*",
+        "src/adapters/*",
+        "src/vendor/*"
+      ],
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.tiktok.com/*"
+      ]
     }
   ],
   "declarative_net_request": {
     "rule_resources": [
-      { "id": "headers", "enabled": true, "path": "src/background/regras.json" }
+      {
+        "id": "headers",
+        "enabled": true,
+        "path": "src/background/regras.json"
+      }
     ]
   }
 }

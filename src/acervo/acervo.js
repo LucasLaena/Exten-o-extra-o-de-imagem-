@@ -5,6 +5,7 @@ import { criarGrade } from "./grid.js";
 import { criarExecutor } from "./executor.js";
 import { criarColetor } from "./coletor.js";
 import { criarColetorDireto } from "./direto.js";
+import { criarAprendiz } from "./assinatura-aba.js";
 import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
@@ -284,12 +285,34 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // continua seu enquanto ela roda. Só quando ela não dá conta é que
     // caímos para o caminho que abre a aba do perfil.
     if (alvo.adaptador.id === "instagram") {
+      const direto = criarColetorDireto({ repo, aoProgresso: relatarProgresso });
       try {
-        dizer("Buscando direto, sem abrir aba…");
-        r = await criarColetorDireto({ repo, aoProgresso: relatarProgresso }).coletar({
+        // A página do perfil responde a qualquer um: é dela que saem o
+        // identificador, o total declarado e a resposta sobre ser privado.
+        dizer("Lendo o perfil…");
+        const perfil = await direto.identificar(alvo.handle);
+        await repo.perfis.salvar({ key: alvo.profileKey, userId: perfil.userId });
+
+        // Alguns segundos de aba em segundo plano, só para ver que consulta o
+        // Instagram dispara. Depois disso a aba fecha e não volta.
+        dizer("Aprendendo a consulta do perfil…");
+        const { assinatura, pagina } = await criarAprendiz({
+          executor,
+        }).aprender({
+          urlDoPerfil: alvo.urlDoPerfil,
+          idDoDono: perfil.userId,
           adaptador: alvo.adaptador,
-          handle: alvo.handle,
+          aoProgresso: relatarProgresso,
+          sinal: controle.signal,
+        });
+
+        dizer("Buscando sem abrir aba…");
+        r = await direto.coletarComAssinatura({
+          adaptador: alvo.adaptador,
+          assinatura,
+          paginaInicial: pagina,
           profileKey: alvo.profileKey,
+          total: perfil.total,
           teto,
           sinal: controle.signal,
         });

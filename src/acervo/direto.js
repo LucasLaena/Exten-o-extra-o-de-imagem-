@@ -176,7 +176,10 @@ export function criarColetorDireto({
       `${motivo ?? `o feed respondeu ${ultima ?? 0}`}` +
       `${csrf ? "" : " (e sem o token que a API exige)"}`,
     );
-    console.warn("[Acervo] busca sem aba falhou:", erro.message, { url, status: ultima, csrf: Boolean(csrf) });
+    console.warn(
+      `[Acervo] busca sem aba falhou: ${erro.message}` +
+      ` | url=${url} status=${ultima} token=${csrf ? "sim" : "não"}`,
+    );
     throw erro;
   }
 
@@ -245,5 +248,108 @@ export function criarColetorDireto({
     };
   }
 
-  return { coletar, identificar };
+  /**
+   * Pagina usando a consulta que a própria página do Instagram fez.
+   *
+   * O endpoint /api/v1/ é a API privada do aplicativo de celular: requisição
+   * vinda de navegador recebe a página do site, por mais cabeçalhos que se
+   * ajuste. O site usa GraphQL, com um doc_id que muda com o tempo e só existe
+   * dentro da página. Aprendida a assinatura uma vez, a paginação acontece
+   * daqui, sem aba e sem rolagem.
+   *
+   * @param {{ adaptador: object, assinatura: object, profileKey: string,
+   *           paginaInicial?: object, teto?: number|null, total?: number|null,
+   *           sinal?: AbortSignal }} args
+   */
+  async function coletarComAssinatura({
+    adaptador, assinatura, profileKey, paginaInicial = null,
+    teto = null, total = null, sinal,
+  }) {
+    const estado = { seq: 0, indexados: 0, paginas: 0, completo: false, vistos: new Set() };
+    let cursor = null;
+    let semNovidade = 0;
+    let pagina = paginaInicial;
+
+    while (true) {
+      if (sinal?.aborted) break;
+
+      if (!pagina) {
+        const { url, init } = adaptador.proximaPagina(assinatura, cursor);
+
+        let json = null;
+        let motivo = null;
+        try {
+          const resposta = await buscar(url, { ...init, credentials: "include" });
+          const texto = await resposta.text();
+
+          if (!resposta.ok) {
+            motivo = `o Instagram respondeu ${resposta.status}: ${texto.slice(0, 120)}`;
+          } else {
+            try {
+              json = JSON.parse(texto);
+            } catch {
+              motivo = "a consulta devolveu página em vez de dados";
+            }
+          }
+        } catch (erro) {
+          motivo = `a requisição nem saiu: ${erro?.message ?? erro}`;
+        }
+
+        if (!json) {
+          const erro = new ErroDireto(motivo ?? "a consulta falhou");
+          console.warn("[Acervo] paginação sem aba falhou:", erro.message);
+          throw erro;
+        }
+        pagina = adaptador.parsear(json);
+      }
+
+      estado.paginas++;
+
+      const novos = [];
+      for (const bruto of pagina.itens) {
+        const key = `${profileKey}#${bruto.id}`;
+        if (estado.vistos.has(key)) continue;
+        estado.vistos.add(key);
+        novos.push({ ...bruto, key, profileKey, seq: ++estado.seq });
+      }
+
+      if (novos.length > 0) await repo.posts.salvarLote(novos);
+      estado.indexados += novos.length;
+      cursor = pagina.cursor ?? cursor;
+
+      semNovidade = novos.length > 0 ? 0 : semNovidade + 1;
+      estado.completo = !pagina.temMais || pagina.itens.length === 0 || semNovidade >= 2;
+
+      await repo.perfis.salvar({
+        key: profileKey,
+        cursor,
+        totalIndexado: estado.seq,
+        totalDeclarado: total,
+        completo: estado.completo,
+        indexadoEm: Date.now(),
+      });
+
+      aoProgresso?.({
+        indexados: estado.indexados,
+        paginas: estado.paginas,
+        total,
+        semAba: true,
+      });
+
+      if (estado.completo || (teto != null && estado.indexados >= teto)) break;
+
+      pagina = null;
+      await esperar(esperaAleatoria(ESPERA_MIN_MS, ESPERA_MAX_MS, aleatorio), sinal);
+    }
+
+    return {
+      indexados: estado.indexados,
+      paginas: estado.paginas,
+      completo: estado.completo,
+      total,
+      semAba: true,
+    };
+  }
+
+  return { coletar, identificar, coletarComAssinatura };
 }

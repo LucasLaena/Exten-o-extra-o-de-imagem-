@@ -272,3 +272,120 @@ describe("cancelamento", () => {
     expect(repo.posts.todos()).toHaveLength(1);
   });
 });
+
+describe("paginar com a consulta aprendida", () => {
+  const ASSINATURA = {
+    url: "https://www.instagram.com/graphql/query",
+    metodo: "POST",
+    headers: { "x-ig-app-id": "936619743392459", "content-type": "application/x-www-form-urlencoded" },
+    corpo: "doc_id=123&variables=%7B%22id%22%3A%22777%22%7D",
+    paramCursor: "after",
+    ondeVaiOCursor: "form",
+  };
+
+  const paginaGql = (codes, cursor, mais) => ({
+    data: {
+      xdt_api__v1__feed__user_timeline_graphql_connection: {
+        edges: codes.map((code) => ({
+          node: {
+            pk: code, code, media_type: 1, taken_at: 1, like_count: 1,
+            user: { pk: "777" },
+            image_versions2: { candidates: [{ url: `https://cdn.test/${code}.jpg`, width: 1080 }] },
+          },
+        })),
+        page_info: { has_next_page: mais, end_cursor: cursor },
+      },
+    },
+  });
+
+  const paginar = (buscar, repo, extra = {}) =>
+    criarColetorDireto({ buscar, repo, esperar: semEspera }).coletarComAssinatura({
+      adaptador: instagram,
+      assinatura: ASSINATURA,
+      profileKey: "ig:@fulano",
+      ...extra,
+    });
+
+  it("aproveita a primeira página já capturada, sem repetir a requisição", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso(() => ({ corpo: paginaGql(["b"], null, false) }));
+
+    const r = await paginar(buscar.fn, repo, {
+      paginaInicial: instagram.parsear(paginaGql(["a"], "C1", true)),
+    });
+
+    expect(r.indexados).toBe(2);
+    expect(repo.posts.todos().map((p) => p.id)).toEqual(["a", "b"]);
+    // Uma requisição só: a primeira página veio de graça com a assinatura.
+    expect(buscar.chamadas).toHaveLength(1);
+  });
+
+  it("leva o cursor no corpo, dentro de variables", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso(() => ({ corpo: paginaGql(["b"], null, false) }));
+
+    await paginar(buscar.fn, repo, {
+      paginaInicial: instagram.parsear(paginaGql(["a"], "CURSOR1", true)),
+    });
+
+    const corpo = new URLSearchParams(buscar.chamadas[0].init.body);
+    expect(JSON.parse(corpo.get("variables")).after).toBe("CURSOR1");
+    // O doc_id aprendido tem que sobreviver à troca do cursor.
+    expect(corpo.get("doc_id")).toBe("123");
+  });
+
+  it("não abre aba: só requisições, com a sessão do navegador", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso(() => ({ corpo: paginaGql(["a"], null, false) }));
+    const r = await paginar(buscar.fn, repo);
+
+    expect(r.semAba).toBe(true);
+    expect(buscar.chamadas[0].init.credentials).toBe("include");
+  });
+
+  it("respeita o teto pedido", async () => {
+    const repo = repoFalso();
+    let n = 0;
+    const buscar = buscarFalso(() => {
+      const base = n * 2;
+      n++;
+      return { corpo: paginaGql([`p${base}`, `p${base + 1}`], `C${n}`, true) };
+    });
+
+    const r = await paginar(buscar.fn, repo, { teto: 3 });
+    expect(r.indexados).toBe(4);
+    expect(r.completo).toBe(false);
+  });
+
+  it("para quando o cursor trava, em vez de girar para sempre", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso(() => ({ corpo: paginaGql(["a"], "MESMO", true) }));
+
+    const r = await paginar(buscar.fn, repo);
+    expect(r.completo).toBe(true);
+    expect(r.indexados).toBe(1);
+  });
+
+  it("diz o motivo quando a consulta aprendida deixa de valer", async () => {
+    const repo = repoFalso();
+    const buscar = buscarFalso(() => ({ status: 400, corpo: "doc_id inválido" }));
+
+    const erro = await paginar(buscar.fn, repo).catch((e) => e);
+    expect(erro).toBeInstanceOf(ErroDireto);
+    expect(erro.message).toContain("400");
+    expect(erro.message).toContain("doc_id inválido");
+  });
+
+  it("guarda o que entrou antes do cancelamento", async () => {
+    const repo = repoFalso();
+    const ctrl = new AbortController();
+    const buscar = buscarFalso(() => {
+      ctrl.abort();
+      return { corpo: paginaGql(["a"], "C", true) };
+    });
+
+    const r = await paginar(buscar.fn, repo, { sinal: ctrl.signal });
+    expect(r.completo).toBe(false);
+    expect(repo.posts.todos()).toHaveLength(1);
+  });
+});

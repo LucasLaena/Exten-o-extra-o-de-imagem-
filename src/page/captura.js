@@ -31,24 +31,59 @@
     if (fila.length > LIMITE) fila.splice(0, fila.length - LIMITE);
   };
 
+  function cabecalhosDe(headers) {
+    const saida = {};
+    if (!headers) return saida;
+    try {
+      if (typeof Headers !== "undefined" && headers instanceof Headers) {
+        headers.forEach(function (valor, nome) { saida[String(nome).toLowerCase()] = valor; });
+      } else if (Array.isArray(headers)) {
+        for (const par of headers) saida[String(par[0]).toLowerCase()] = par[1];
+      } else {
+        for (const nome of Object.keys(headers)) {
+          saida[String(nome).toLowerCase()] = headers[nome];
+        }
+      }
+    } catch {}
+    return saida;
+  }
+
+  /**
+   * Descreve a requisição por inteiro.
+   *
+   * O corpo e os cabeçalhos são o que permite repetir a consulta depois, de
+   * fora desta aba: o Instagram pagina por GraphQL com um doc_id que muda, e
+   * ele só existe aqui dentro.
+   */
   function descreverRequest(entrada, init) {
     if (typeof Request !== "undefined" && entrada instanceof Request) {
-      return { url: entrada.url, metodo: entrada.method };
+      return {
+        url: entrada.url,
+        metodo: entrada.method,
+        headers: cabecalhosDe(entrada.headers),
+        corpo: init && init.body != null ? String(init.body) : null,
+      };
     }
-    return { url: String(entrada), metodo: init?.method ?? "GET" };
+    return {
+      url: String(entrada),
+      metodo: (init && init.method) || "GET",
+      headers: cabecalhosDe(init && init.headers),
+      corpo: init && init.body != null ? String(init.body) : null,
+    };
   }
 
   const fetchOriginal = window.fetch.bind(window);
   window.fetch = async function fetchDoAcervo(entrada, init) {
     const resposta = await fetchOriginal(entrada, init);
     try {
-      const { url, metodo } = descreverRequest(entrada, init);
+      const descricao = descreverRequest(entrada, init);
+      const url = descricao.url;
       if (pareceFeed(url)) {
         // clone(): consumir o corpo original deixaria o app sem dados.
         resposta
           .clone()
           .json()
-          .then((json) => guardar({ url, metodo, json, em: Date.now() }))
+          .then((json) => guardar({ ...descricao, json, em: Date.now() }))
           .catch(() => {});
       }
     } catch {

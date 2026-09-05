@@ -25,8 +25,11 @@ export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch })
   }
   registrar("Perfil informado", "ok", `${alvo.profileKey} → ${alvo.urlDoPerfil}`);
 
-  // A busca direta é o caminho principal: se ela funciona, nem precisamos de
-  // aba. Testá-la primeiro é o que separa "não deu" de "não deu por causa X".
+  // A página do perfil é o que sustenta a coleta sem aba: dela saem o
+  // identificador, o token e o total. O endpoint /api/v1/feed não é testado
+  // aqui de propósito — ele é a API privada do aplicativo de celular e devolve
+  // a página do site para qualquer requisição de navegador, então falhar ali
+  // não diria nada sobre o caminho que a coleta usa de verdade.
   if (alvo.adaptador.id === "instagram") {
     try {
       const url = `https://www.instagram.com/${encodeURIComponent(alvo.handle)}/`;
@@ -38,57 +41,35 @@ export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch })
 
       if (!resposta.ok) {
         registrar(
-          "Busca sem aba",
-          "aviso",
-          `a página do perfil respondeu ${resposta.status}. ` +
-            "A coleta vai precisar abrir a aba do perfil.",
+          "Leitura do perfil",
+          "erro",
+          `a página do perfil respondeu ${resposta.status}.` +
+            (resposta.status === 429 ? " Espere alguns minutos e tente de novo." : ""),
         );
       } else if (ehPrivado(html)) {
-        registrar("Busca sem aba", "erro", "este perfil é privado; o Acervo só lê perfil público.");
+        registrar("Leitura do perfil", "erro", "este perfil é privado; o Acervo só lê perfil público.");
       } else {
         const id = extrairIdDoPerfil(html, alvo.handle);
         if (!id) {
           registrar(
-            "Busca sem aba",
+            "Leitura do perfil",
             "aviso",
             `a página veio (${html.length} caracteres) mas sem o identificador do perfil. ` +
               "Provavelmente o Instagram devolveu a versão deslogada.",
           );
         } else {
           const csrf = extrairCsrf(html);
-          const appId = extrairAppId(html) ?? IG_APP_ID;
-
-          const feed = await buscar(
-            `https://www.instagram.com/api/v1/feed/user/${id}/?count=50`,
-            {
-              credentials: "include",
-              headers: {
-                "x-ig-app-id": appId,
-                "x-requested-with": "XMLHttpRequest",
-                "x-ig-www-claim": "0",
-                ...(csrf ? { "x-csrftoken": csrf } : {}),
-              },
-            },
-          );
-          const texto = await feed.text();
-          let quantas = null;
-          try {
-            quantas = JSON.parse(texto)?.items?.length ?? null;
-          } catch {}
-
           registrar(
-            "Busca sem aba",
-            feed.ok && quantas ? "ok" : "aviso",
-            feed.ok && quantas
-              ? `id ${id}, ${quantas} publicações numa requisição — não precisa de aba`
-              : `id ${id}, token ${csrf ? "encontrado" : "AUSENTE"}, ` +
-                `mas o feed respondeu ${feed.status}` +
-                (texto.slice(0, 80) ? `: ${texto.slice(0, 80)}` : ""),
+            "Leitura do perfil",
+            "ok",
+            `id ${id}, token ${csrf ? "encontrado" : "ausente"} — ` +
+              "a coleta aprende a consulta com uma passada rápida pela aba e " +
+              "pagina o resto sem aba nenhuma",
           );
         }
       }
     } catch (erro) {
-      registrar("Busca sem aba", "erro", String(erro?.message ?? erro));
+      registrar("Leitura do perfil", "erro", String(erro?.message ?? erro));
     }
   }
 

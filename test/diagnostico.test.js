@@ -45,7 +45,7 @@ describe("caminho feliz", () => {
     expect(passos.every((p) => p.estado === "ok")).toBe(true);
     expect(passos.map((p) => p.nome)).toEqual([
       "Perfil informado",
-      "Busca sem aba",
+      "Leitura do perfil",
       "Aba do perfil",
       "Executar código na aba",
       "Script de captura ativo",
@@ -71,7 +71,7 @@ describe("cada elo quebrado é apontado", () => {
     executor.acharOuAbrirAba.mockRejectedValue(new Error("não terminou de carregar"));
     const passos = await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
     expect(estadoDe(passos, "Aba do perfil")).toBe("erro");
-    // Perfil informado, busca sem aba, e a aba que falhou.
+    // Perfil informado, leitura do perfil, e a aba que falhou.
     expect(passos).toHaveLength(3);
   });
 
@@ -113,32 +113,32 @@ describe("cada elo quebrado é apontado", () => {
   });
 });
 
-describe("busca sem aba", () => {
-  it("aprova quando o feed responde: aí nem precisa de aba", async () => {
+describe("leitura do perfil sem aba", () => {
+  it("aprova quando a página entrega o identificador", async () => {
     const { executor, repo, buscar } = ambiente({ pingar: "ok", capturaInstalada: true });
     const passos = await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
-    const passo = passos.find((p) => p.nome === "Busca sem aba");
+    const passo = passos.find((p) => p.nome === "Leitura do perfil");
     expect(passo.estado).toBe("ok");
-    expect(passo.detalhe).toMatch(/não precisa de aba/i);
+    expect(passo.detalhe).toMatch(/sem aba nenhuma/i);
   });
 
-  it("diz o status quando o feed recusa, em vez de só falhar", async () => {
+  it("não sonda /api/v1: esse endpoint devolve a página do site, não dados", async () => {
+    // Testá-lo daria "aviso" em todo perfil e mandaria o diagnóstico apontar
+    // uma causa que não é a causa. A coleta aprende a consulta pela aba.
+    const { executor, repo, buscar } = ambiente({ pingar: "ok", capturaInstalada: true });
+    await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
+    expect(buscar.mock.calls.some(([url]) => url.includes("/api/v1/feed/"))).toBe(false);
+  });
+
+  it("limite de consulta é erro com instrução de esperar", async () => {
     const { executor, repo } = ambiente({ pingar: "ok", capturaInstalada: true });
-    const buscar = vi.fn(async (url) =>
-      url.includes("/api/v1/feed/")
-        ? { ok: false, status: 401, text: async () => "login_required" }
-        : {
-            ok: true,
-            status: 200,
-            text: async () => "x".repeat(600) + JSON.stringify({ id: "1", username: "fulano" }),
-          },
-    );
+    const buscar = vi.fn(async () => ({ ok: false, status: 429, text: async () => "" }));
 
     const passos = await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
-    const passo = passos.find((p) => p.nome === "Busca sem aba");
-    expect(passo.estado).toBe("aviso");
-    expect(passo.detalhe).toContain("401");
-    expect(passo.detalhe).toContain("login_required");
+    const passo = passos.find((p) => p.nome === "Leitura do perfil");
+    expect(passo.estado).toBe("erro");
+    expect(passo.detalhe).toContain("429");
+    expect(passo.detalhe).toMatch(/espere/i);
   });
 
   it("avisa quando a página vem sem identificador, que é a versão deslogada", async () => {
@@ -148,7 +148,7 @@ describe("busca sem aba", () => {
     }));
 
     const passos = await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
-    const passo = passos.find((p) => p.nome === "Busca sem aba");
+    const passo = passos.find((p) => p.nome === "Leitura do perfil");
     expect(passo.estado).toBe("aviso");
     expect(passo.detalhe).toMatch(/deslogada/i);
   });
@@ -160,13 +160,13 @@ describe("busca sem aba", () => {
     }));
 
     const passos = await rodarDiagnostico({ executor, alvo: alvoIG, repo, buscar });
-    expect(estadoDe(passos, "Busca sem aba")).toBe("erro");
+    expect(estadoDe(passos, "Leitura do perfil")).toBe("erro");
   });
 
   it("no TikTok nem tenta: o caminho lá é outro", async () => {
     const { executor, repo, buscar } = ambiente({ pingar: "ok", capturaInstalada: true });
     const passos = await rodarDiagnostico({ executor, alvo: alvoTT, repo, buscar });
-    expect(passos.some((p) => p.nome === "Busca sem aba")).toBe(false);
+    expect(passos.some((p) => p.nome === "Leitura do perfil")).toBe(false);
     expect(buscar).not.toHaveBeenCalled();
   });
 });
