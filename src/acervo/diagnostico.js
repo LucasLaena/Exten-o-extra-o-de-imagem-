@@ -4,6 +4,8 @@ import {
 import {
   extrairIdDoPerfil, ehPrivado, extrairCsrf, extrairAppId,
 } from "../core/perfil-html.js";
+import { abrirCanal } from "./canal.js";
+import { criarAprendiz } from "./assinatura-aba.js";
 
 /**
  * Testa cada elo da corrente e diz qual quebrou, com o que fazer.
@@ -12,7 +14,10 @@ import {
  * nada acontecia, sem nenhuma pista. Aqui cada passo devolve verde, vermelho
  * ou aviso, e o vermelho vem com instrução.
  */
-export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch }) {
+export async function rodarDiagnostico({
+  executor, alvo, repo, buscar = fetch,
+  abrir = abrirCanal, aprendiz = criarAprendiz,
+}) {
   const passos = [];
   const registrar = (nome, estado, detalhe) => {
     passos.push({ nome, estado, detalhe });
@@ -179,6 +184,33 @@ export async function rodarDiagnostico({ executor, alvo, repo, buscar = fetch })
     }
   } finally {
     await executor.fecharSeCriada(aba);
+  }
+
+  // A etapa que de fato vinha falhando, e que ate agora nenhum passo
+  // testava: o diagnostico dava tudo verde e a indexacao morria em seguida.
+  // Aprender a consulta e o unico elo que depende do formato do Instagram, e
+  // por isso o unico que quebra sozinho quando eles mudam alguma coisa.
+  if (alvo.adaptador.id === "instagram") {
+    let canal = null;
+    try {
+      canal = await abrir({ executor, urlDoPerfil: alvo.urlDoPerfil });
+      const { assinatura, pagina } = await aprendiz({ tentativas: 20 }).aprender({
+        canal,
+        adaptador: alvo.adaptador,
+      });
+
+      const endereco = String(assinatura.url).replace(/^https?:\/\/[^/]+/, "");
+      registrar(
+        "Consulta do feed",
+        "ok",
+        `aprendida em ${endereco} (cursor em ${assinatura.ondeVaiOCursor}), ` +
+          `${pagina.itens.length} publicações na primeira página`,
+      );
+    } catch (erro) {
+      registrar("Consulta do feed", "erro", String(erro?.message ?? erro));
+    } finally {
+      await canal?.fechar();
+    }
   }
 
   try {
