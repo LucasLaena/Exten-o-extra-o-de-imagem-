@@ -6,6 +6,7 @@ import { criarExecutor } from "./executor.js";
 import { criarColetor } from "./coletor.js";
 import { criarColetorDireto } from "./direto.js";
 import { criarAprendiz } from "./assinatura-aba.js";
+import { abrirCanal } from "./canal.js";
 import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
@@ -285,29 +286,34 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // continua seu enquanto ela roda. Só quando ela não dá conta é que
     // caímos para o caminho que abre a aba do perfil.
     if (alvo.adaptador.id === "instagram") {
-      const direto = criarColetorDireto({ repo, aoProgresso: relatarProgresso });
+      let canal = null;
       try {
         // A página do perfil responde a qualquer um: é dela que saem o
         // identificador, o total declarado e a resposta sobre ser privado.
         dizer("Lendo o perfil…");
-        const perfil = await direto.identificar(alvo.handle);
+        const perfil = await criarColetorDireto({ repo }).identificar(alvo.handle);
         await repo.perfis.salvar({ key: alvo.profileKey, userId: perfil.userId });
 
-        // Alguns segundos de aba em segundo plano, só para ver que consulta o
-        // Instagram dispara. Depois disso a aba fecha e não volta.
+        // A aba nasce escondida e fica parada. Ela não existe para rolar: é só
+        // o endereço de rede de onde as consultas saem como sendo do próprio
+        // site. Quem comanda é esta aba aqui, de fora.
+        canal = await abrirCanal({ executor, urlDoPerfil: alvo.urlDoPerfil });
+
         dizer("Aprendendo a consulta do perfil…");
-        const { assinatura, pagina } = await criarAprendiz({
-          executor,
-        }).aprender({
-          urlDoPerfil: alvo.urlDoPerfil,
+        const { assinatura, pagina } = await criarAprendiz().aprender({
+          canal,
           idDoDono: perfil.userId,
           adaptador: alvo.adaptador,
           aoProgresso: relatarProgresso,
           sinal: controle.signal,
         });
 
-        dizer("Buscando sem abrir aba…");
-        r = await direto.coletarComAssinatura({
+        dizer("Buscando em segundo plano, sem rolagem…");
+        r = await criarColetorDireto({
+          repo,
+          aoProgresso: relatarProgresso,
+          buscar: canal.buscar,
+        }).coletarComAssinatura({
           adaptador: alvo.adaptador,
           assinatura,
           paginaInicial: pagina,
@@ -323,6 +329,8 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         // sobrescreveria a mensagem em menos de um segundo e o motivo se
         // perderia justamente quando mais importa.
         avisarRecuo(erro.message);
+      } finally {
+        await canal?.fechar();
       }
     }
 

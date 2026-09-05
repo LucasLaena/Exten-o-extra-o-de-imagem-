@@ -42,26 +42,30 @@ describe("regras de header", () => {
     }
   });
 
-  it("faz a requisição direta parecer vir do próprio site", () => {
-    // Sem estes cabeçalhos a busca sai com Origin chrome-extension:// e o
-    // Instagram recusa. É o que permite coletar sem abrir aba nenhuma.
+  it("ajusta o Referer da leitura da pagina do perfil", () => {
+    // O alcance desta regra e modesto e vale registrar: ela serve ao GET da
+    // pagina do perfil, de onde saem o identificador e o token. O feed nao
+    // passa por aqui — ele e buscado de dentro da aba.
     const direta = regras.find((r) => r.condition.urlFilter === "||instagram.com");
     expect(direta).toBeTruthy();
 
     const nomes = direta.action.requestHeaders.map((h) => h.header.toLowerCase());
     expect(nomes).toContain("referer");
 
-    // Sem os Sec-Fetch o Instagram acha que é navegação e devolve a página
-    // HTML em vez dos dados. Eles não interferem em CORS, ao contrário do Origin.
-    expect(nomes).toContain("sec-fetch-site");
-    const site = direta.action.requestHeaders.find((h) => h.header === "Sec-Fetch-Site");
-    expect(site.value).toBe("same-origin");
-
-    // Origin é REMOVIDO, nunca forçado: forçá-lo joga a requisição na
-    // validação de CORS, que falha porque a origem real é chrome-extension://.
     const origem = direta.action.requestHeaders.find((h) => h.header === "Origin");
     expect(origem.operation).toBe("remove");
   });
+
+  it("nao tenta reescrever Sec-Fetch, que o navegador nao deixa", () => {
+    // A v0.19.0 tentou, em campo, e o Instagram seguiu devolvendo a pagina do
+    // site: esses cabecalhos sao controlados pelo navegador e a regra passa em
+    // branco. Config morta que parece viva ja custou rodadas de diagnostico
+    // apontando a causa errada.
+    const direta = regras.find((r) => r.condition.urlFilter === "||instagram.com");
+    const nomes = direta.action.requestHeaders.map((h) => h.header.toLowerCase());
+    expect(nomes.some((n) => n.startsWith("sec-fetch"))).toBe(false);
+  });
+
 
   it("todo host das regras está declarado no manifest", () => {
     const permitidos = manifest.host_permissions.join(" ");

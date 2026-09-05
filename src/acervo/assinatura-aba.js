@@ -1,6 +1,5 @@
 import { dormir } from "../core/queue.js";
 import { montarAssinatura, pareceFeed } from "../core/assinatura.js";
-import { drenarCapturas } from "./sondas.js";
 
 export const TENTATIVAS = 24;
 export const ESPERA_MS = 500;
@@ -29,13 +28,12 @@ export class ErroDeAssinatura extends Error {
  * segundos e fecha. Nada de rolagem, nada de foco roubado — e a paginação
  * inteira acontece depois, daqui, sem aba nenhuma.
  *
- * @param {{ executor: object, esperar?: Function, tentativas?: number }} deps
+ * @param {{ esperar?: Function, tentativas?: number }} deps
  */
 export function criarAprendiz({
-  executor,
   esperar = dormir,
   tentativas = TENTATIVAS,
-}) {
+} = {}) {
   /**
    * Serve para paginar?
    *
@@ -51,39 +49,29 @@ export function criarAprendiz({
   }
 
   /**
-   * @param {{ urlDoPerfil: string, idDoDono?: string|null, adaptador: object,
+   * @param {{ canal: object, idDoDono?: string|null, adaptador: object,
    *           aoProgresso?: Function, sinal?: AbortSignal }} args
    */
-  async function aprender({ urlDoPerfil, idDoDono = null, adaptador, aoProgresso, sinal }) {
-    const aba = await executor.acharOuAbrirAba(urlDoPerfil, { visivel: false });
+  async function aprender({ canal, idDoDono = null, adaptador, aoProgresso, sinal }) {
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+      if (sinal?.aborted) throw new ErroDeAssinatura("Cancelado.");
 
-    try {
-      for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
-        if (sinal?.aborted) throw new ErroDeAssinatura("Cancelado.");
+      for (const captura of await canal.drenar()) {
+        if (!serve(captura, idDoDono, adaptador)) continue;
 
-        const capturas = (await executor.rodar(aba.abaId, drenarCapturas)) ?? [];
+        const assinatura = montarAssinatura(captura);
+        if (!assinatura) continue;
 
-        for (const captura of capturas) {
-          if (!serve(captura, idDoDono, adaptador)) continue;
-
-          const assinatura = montarAssinatura(captura);
-          if (!assinatura) continue;
-
-          return { assinatura, pagina: adaptador.parsear(captura.json) };
-        }
-
-        aoProgresso?.({ aviso: `Lendo a consulta do perfil… (${tentativa}/${tentativas})` });
-        await esperar(ESPERA_MS, sinal);
+        return { assinatura, pagina: adaptador.parsear(captura.json) };
       }
 
-      throw new ErroDeAssinatura(
-        "A página do perfil não consultou o feed no tempo esperado.",
-      );
-    } finally {
-      // A aba é descartável por definição: se ficasse aberta, o ganho de não
-      // tomar a tela do usuário se perderia na primeira coleta.
-      await executor.fecharSeCriada(aba);
+      aoProgresso?.({ aviso: `Lendo a consulta do perfil… (${tentativa}/${tentativas})` });
+      await esperar(ESPERA_MS, sinal);
     }
+
+    throw new ErroDeAssinatura(
+      "A página do perfil não consultou o feed no tempo esperado.",
+    );
   }
 
   return { aprender };

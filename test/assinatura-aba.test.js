@@ -25,26 +25,24 @@ const capturaBoa = (dono = "777") => ({
   },
 });
 
-function executorFalso({ capturas = [[capturaBoa()]] } = {}) {
+function canalFalso({ capturas = [[capturaBoa()]] } = {}) {
   let n = 0;
   return {
-    acharOuAbrirAba: vi.fn().mockResolvedValue({ abaId: 5, criada: true }),
-    fecharSeCriada: vi.fn().mockResolvedValue(undefined),
-    rodar: vi.fn(async () => capturas[Math.min(n++, capturas.length - 1)]),
+    drenar: vi.fn(async () => capturas[Math.min(n++, capturas.length - 1)]),
   };
 }
 
-const aprender = (executor, extra = {}) =>
-  criarAprendiz({ executor, esperar: () => Promise.resolve(), ...extra }).aprender({
-    urlDoPerfil: "https://www.instagram.com/fulano/",
+const aprender = (canal, extra = {}) =>
+  criarAprendiz({ esperar: () => Promise.resolve(), ...extra }).aprender({
+    canal,
     idDoDono: "777",
     adaptador: instagram,
   });
 
 describe("aprender a consulta com uma passada pela aba", () => {
   it("devolve assinatura pronta para paginar e a primeira página junto", async () => {
-    const ex = executorFalso();
-    const r = await aprender(ex);
+    const canal = canalFalso();
+    const r = await aprender(canal);
 
     expect(r.assinatura.url).toBe(GRAPHQL);
     expect(r.assinatura.paramCursor).toBe("after");
@@ -54,54 +52,39 @@ describe("aprender a consulta com uma passada pela aba", () => {
     expect(r.pagina.cursor).toBe("C1");
   });
 
-  it("abre a aba em segundo plano: a tela do usuário não é tomada", async () => {
-    const ex = executorFalso();
-    await aprender(ex);
-    expect(ex.acharOuAbrirAba).toHaveBeenCalledWith(
-      "https://www.instagram.com/fulano/",
-      { visivel: false },
-    );
-  });
-
-  it("fecha a aba que abriu, mesmo quando não aprende nada", async () => {
-    const ex = executorFalso({ capturas: [[]] });
-    await aprender(ex, { tentativas: 2 }).catch(() => {});
-    expect(ex.fecharSeCriada).toHaveBeenCalledWith({ abaId: 5, criada: true });
-  });
-
   it("nunca copia o cookie para a assinatura", async () => {
-    const ex = executorFalso();
-    const r = await aprender(ex);
+    const canal = canalFalso();
+    const r = await aprender(canal);
     expect(Object.keys(r.assinatura.headers)).not.toContain("cookie");
   });
 
   it("recusa captura de outro perfil, que contaminaria o catálogo", async () => {
-    const ex = executorFalso({ capturas: [[capturaBoa("999")], [capturaBoa("777")]] });
-    const r = await aprender(ex);
+    const canal = canalFalso({ capturas: [[capturaBoa("999")], [capturaBoa("777")]] });
+    const r = await aprender(canal);
     expect(r.pagina.itens).toHaveLength(1);
-    expect(ex.rodar).toHaveBeenCalledTimes(2);
+    expect(canal.drenar).toHaveBeenCalledTimes(2);
   });
 
   it("insiste enquanto a página ainda não consultou o feed", async () => {
-    const ex = executorFalso({ capturas: [[], [], [capturaBoa()]] });
-    const r = await aprender(ex);
+    const canal = canalFalso({ capturas: [[], [], [capturaBoa()]] });
+    const r = await aprender(canal);
     expect(r.assinatura).toBeTruthy();
-    expect(ex.rodar).toHaveBeenCalledTimes(3);
+    expect(canal.drenar).toHaveBeenCalledTimes(3);
   });
 
   it("desiste com erro dizível em vez de esperar para sempre", async () => {
-    const ex = executorFalso({ capturas: [[]] });
-    const erro = await aprender(ex, { tentativas: 3 }).catch((e) => e);
+    const canal = canalFalso({ capturas: [[]] });
+    const erro = await aprender(canal, { tentativas: 3 }).catch((e) => e);
     expect(erro).toBeInstanceOf(ErroDeAssinatura);
     expect(erro.message).toMatch(/não consultou o feed/i);
-    expect(ex.rodar).toHaveBeenCalledTimes(3);
+    expect(canal.drenar).toHaveBeenCalledTimes(3);
   });
 
   it("ignora captura sem json, que não serve para nada", async () => {
-    const ex = executorFalso({
+    const canal = canalFalso({
       capturas: [[{ ...capturaBoa(), json: null }], [capturaBoa()]],
     });
-    const r = await aprender(ex);
+    const r = await aprender(canal);
     expect(r.pagina.itens).toHaveLength(1);
   });
 });

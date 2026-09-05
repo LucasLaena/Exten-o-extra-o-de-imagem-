@@ -61,9 +61,9 @@ export function estadoDaTela({ total, baixados, temAssinatura, temAba }) {
     vazio: {
       titulo: "Catálogo vazio",
       passos: [
-        "Abra o perfil numa aba e role a grade por alguns segundos — é isso que faz a plataforma carregar os dados.",
-        "Volte aqui e clique em Indexar perfil.",
-        "Num perfil grande isso leva alguns minutos, e fica salvo para sempre.",
+        "Cole o endereço do perfil aí em cima e clique em Indexar perfil.",
+        "Uma aba abre em segundo plano e fica parada, só para as consultas saírem de dentro do site. Você não precisa rolar nada.",
+        "Num perfil grande isso leva alguns minutos. O catálogo vale por esta sessão: ao fechar, ele se perde.",
       ],
       porque:
         "Ordenar por curtidas ou visualizações só funciona com o catálogo " +
