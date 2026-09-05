@@ -145,3 +145,68 @@ describe("o corpo da consulta", () => {
     expect(c.headers["x-ig-app-id"]).toBe("936619743392459");
   });
 });
+
+describe("captura por XHR", () => {
+  // Este caminho guardava so url, metodo e json. Sem corpo nao ha doc_id, a
+  // assinatura e recusada, e o aprendiz dizia "a pagina nao consultou o feed"
+  // justamente quando ela tinha consultado.
+  //
+  // Os metodos remendados sao chamados direto sobre um objeto de mentira: um
+  // XHR de verdade tentaria falar com a instagram.com, e o teste passaria a
+  // depender da rede para provar algo que e so de contabilidade interna.
+  function xhrDeMentira(resposta) {
+    return {
+      ouvintes: {},
+      responseText: JSON.stringify(resposta),
+      addEventListener(tipo, fn) {
+        (this.ouvintes[tipo] = this.ouvintes[tipo] ?? []).push(fn);
+      },
+      dispara(tipo) {
+        for (const fn of this.ouvintes[tipo] ?? []) fn();
+      },
+    };
+  }
+
+  // Cada metodo remendado faz a sua escrituracao ANTES de delegar ao
+  // original, e o original do jsdom recusa um objeto que nao e XHR de
+  // verdade. A recusa e esperada: o que interessa ja foi anotado.
+  const semRede = (fn) => {
+    try { fn(); } catch { /* o envio de verdade nao existe aqui */ }
+  };
+
+  function enviar(url, corpo, cabecalhos = {}) {
+    const x = xhrDeMentira({ data: { x: 1 } });
+    semRede(() => XMLHttpRequest.prototype.open.call(x, "POST", url));
+    for (const nome of Object.keys(cabecalhos)) {
+      semRede(() =>
+        XMLHttpRequest.prototype.setRequestHeader.call(x, nome, cabecalhos[nome]));
+    }
+    semRede(() => XMLHttpRequest.prototype.send.call(x, corpo));
+    x.dispara("load");
+    return x;
+  }
+
+  it("guarda o corpo, que e onde mora o doc_id", async () => {
+    enviar(URL_FEED, "doc_id=321&variables=%7B%7D");
+    const [c] = await drenar();
+    expect(c).toBeTruthy();
+    expect(c.corpo).toContain("doc_id=321");
+  });
+
+  it("guarda os cabecalhos que o endpoint exige", async () => {
+    enviar(URL_FEED, "doc_id=1", { "X-IG-App-ID": "936619743392459" });
+    const [c] = await drenar();
+    expect(c.headers["x-ig-app-id"]).toBe("936619743392459");
+  });
+
+  it("guarda tambem a resposta, para a primeira pagina sair de graca", async () => {
+    enviar(URL_FEED, "doc_id=1");
+    const [c] = await drenar();
+    expect(c.json).toEqual({ data: { x: 1 } });
+  });
+
+  it("ignora endpoint que nao e de feed", async () => {
+    enviar(URL_OUTRA, "doc_id=1");
+    expect(await drenar()).toHaveLength(0);
+  });
+});

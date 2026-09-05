@@ -103,3 +103,22 @@ describe("quando a pagina demora a consultar", () => {
     expect(canal.cutucar).not.toHaveBeenCalled();
   });
 });
+
+describe("o erro diz qual dos dois problemas aconteceu", () => {
+  it("separa 'vi e nao servia' de 'nao vi nada'", async () => {
+    // Sem doc_id a assinatura e recusada. Dizer "nao consultou o feed" nesse
+    // caso manda procurar a causa no lugar errado.
+    const semDocId = { ...capturaBoa(), corpo: "variables=%7B%7D" };
+    const canal = canalFalso({ capturas: [[semDocId]] });
+
+    const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
+    expect(erro.message).toMatch(/doc_id/i);
+    expect(erro.message).not.toMatch(/nao consultou|não consultou/i);
+  });
+
+  it("mantem a mensagem antiga quando de fato nao veio consulta", async () => {
+    const canal = canalFalso({ capturas: [[]] });
+    const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
+    expect(erro.message).toMatch(/não consultou o feed/i);
+  });
+});

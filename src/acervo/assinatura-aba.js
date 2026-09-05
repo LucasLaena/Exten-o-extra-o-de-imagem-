@@ -54,14 +54,24 @@ export function criarAprendiz({
    *           aoProgresso?: Function, sinal?: AbortSignal }} args
    */
   async function aprender({ canal, idDoDono = null, adaptador, aoProgresso, sinal }) {
+    // Contadas para o erro poder dizer o que de fato aconteceu: esperar por
+    // uma consulta que nunca veio e ver a consulta e nao conseguir usa-la sao
+    // problemas diferentes, e confundi-los ja custou rodadas de diagnostico.
+    let vistas = 0;
+    let recusadas = 0;
+
     for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
       if (sinal?.aborted) throw new ErroDeAssinatura("Cancelado.");
 
       for (const captura of await canal.drenar()) {
         if (!serve(captura, idDoDono, adaptador)) continue;
+        vistas++;
 
         const assinatura = montarAssinatura(captura);
-        if (!assinatura) continue;
+        if (!assinatura) {
+          recusadas++;
+          continue;
+        }
 
         return { assinatura, pagina: adaptador.parsear(captura.json) };
       }
@@ -76,7 +86,10 @@ export function criarAprendiz({
     }
 
     throw new ErroDeAssinatura(
-      "A página do perfil não consultou o feed no tempo esperado.",
+      recusadas > 0
+        ? `Vi ${recusadas} consulta(s) do feed, mas sem o doc_id que permite ` +
+          "repeti-las. O Instagram deve ter mudado o formato."
+        : "A página do perfil não consultou o feed no tempo esperado.",
     );
   }
 

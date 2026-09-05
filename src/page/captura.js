@@ -56,21 +56,23 @@
    * que ele responde com 500. Ler só init.body perde o caso de
    * fetch(new Request(url, {body})), que é o que o app de fato usa.
    */
+  function textoDeCorpoCru(cru) {
+    if (cru == null) return null;
+    if (typeof cru === "string") return cru;
+    if (typeof URLSearchParams !== "undefined" && cru instanceof URLSearchParams) {
+      return cru.toString();
+    }
+    if (typeof FormData !== "undefined" && cru instanceof FormData) {
+      try {
+        return new URLSearchParams(Array.from(cru)).toString();
+      } catch { return null; }
+    }
+    try { return String(cru); } catch { return null; }
+  }
+
   async function corpoDe(entrada, init, clone) {
     const cru = init && init.body != null ? init.body : null;
-
-    if (cru != null) {
-      if (typeof cru === "string") return cru;
-      if (typeof URLSearchParams !== "undefined" && cru instanceof URLSearchParams) {
-        return cru.toString();
-      }
-      if (typeof FormData !== "undefined" && cru instanceof FormData) {
-        try {
-          return new URLSearchParams(Array.from(cru)).toString();
-        } catch { return null; }
-      }
-      try { return String(cru); } catch { return null; }
-    }
+    if (cru != null) return textoDeCorpoCru(cru);
 
     // O clone tem de ser feito ANTES do fetch: depois, o corpo já foi lido.
     if (clone) {
@@ -126,18 +128,33 @@
   if (XHR) {
     const abrirOriginal = XHR.prototype.open;
     const enviarOriginal = XHR.prototype.send;
+    const cabecalhoOriginal = XHR.prototype.setRequestHeader;
+
     XHR.prototype.open = function (metodo, url, ...resto) {
-      this.__acervo = { metodo, url: String(url) };
+      this.__acervo = { metodo, url: String(url), headers: {} };
       return abrirOriginal.call(this, metodo, url, ...resto);
     };
+
+    XHR.prototype.setRequestHeader = function (nome, valor) {
+      try {
+        if (this.__acervo) this.__acervo.headers[String(nome).toLowerCase()] = valor;
+      } catch {}
+      return cabecalhoOriginal.call(this, nome, valor);
+    };
+
     XHR.prototype.send = function (corpo) {
       try {
         if (pareceFeed(this.__acervo?.url)) {
+          // O corpo tem de ser lido AQUI: e o unico ponto em que ele existe.
+          // Sem ele nao ha doc_id, e a consulta nao pode ser repetida.
+          const texto = textoDeCorpoCru(corpo);
           this.addEventListener("load", () => {
             try {
               guardar({
                 url: this.__acervo.url,
                 metodo: this.__acervo.metodo,
+                headers: this.__acervo.headers,
+                corpo: texto,
                 json: JSON.parse(this.responseText),
                 em: Date.now(),
               });
