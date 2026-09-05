@@ -49,45 +49,75 @@
   }
 
   /**
-   * Descreve a requisição por inteiro.
+   * O corpo, em texto, venha ele de onde vier.
    *
-   * O corpo e os cabeçalhos são o que permite repetir a consulta depois, de
-   * fora desta aba: o Instagram pagina por GraphQL com um doc_id que muda, e
-   * ele só existe aqui dentro.
+   * É a parte que carrega o doc_id e as variables — sem ela a consulta não
+   * pode ser repetida de fora, e o que chega ao Instagram é um pedido vazio
+   * que ele responde com 500. Ler só init.body perde o caso de
+   * fetch(new Request(url, {body})), que é o que o app de fato usa.
    */
-  function descreverRequest(entrada, init) {
+  async function corpoDe(entrada, init, clone) {
+    const cru = init && init.body != null ? init.body : null;
+
+    if (cru != null) {
+      if (typeof cru === "string") return cru;
+      if (typeof URLSearchParams !== "undefined" && cru instanceof URLSearchParams) {
+        return cru.toString();
+      }
+      if (typeof FormData !== "undefined" && cru instanceof FormData) {
+        try {
+          return new URLSearchParams(Array.from(cru)).toString();
+        } catch { return null; }
+      }
+      try { return String(cru); } catch { return null; }
+    }
+
+    // O clone tem de ser feito ANTES do fetch: depois, o corpo já foi lido.
+    if (clone) {
+      try { return await clone.text(); } catch { return null; }
+    }
+    return null;
+  }
+
+  function urlEMetodo(entrada, init) {
     if (typeof Request !== "undefined" && entrada instanceof Request) {
-      return {
-        url: entrada.url,
-        metodo: entrada.method,
-        headers: cabecalhosDe(entrada.headers),
-        corpo: init && init.body != null ? String(init.body) : null,
-      };
+      return { url: entrada.url, metodo: entrada.method, headers: cabecalhosDe(entrada.headers) };
     }
     return {
       url: String(entrada),
       metodo: (init && init.method) || "GET",
       headers: cabecalhosDe(init && init.headers),
-      corpo: init && init.body != null ? String(init.body) : null,
     };
   }
 
   const fetchOriginal = window.fetch.bind(window);
   window.fetch = async function fetchDoAcervo(entrada, init) {
-    const resposta = await fetchOriginal(entrada, init);
+    let clone = null;
+    let descricao = null;
     try {
-      const descricao = descreverRequest(entrada, init);
-      const url = descricao.url;
-      if (pareceFeed(url)) {
-        // clone(): consumir o corpo original deixaria o app sem dados.
-        resposta
-          .clone()
-          .json()
-          .then((json) => guardar({ ...descricao, json, em: Date.now() }))
-          .catch(() => {});
+      descricao = urlEMetodo(entrada, init);
+      if (pareceFeed(descricao.url) && typeof Request !== "undefined"
+          && entrada instanceof Request) {
+        clone = entrada.clone();
       }
     } catch {
       // observação nunca pode quebrar a página
+    }
+
+    const resposta = await fetchOriginal(entrada, init);
+
+    try {
+      if (descricao && pareceFeed(descricao.url)) {
+        // clone(): consumir o corpo original deixaria o app sem dados.
+        const dados = resposta.clone().json();
+        Promise.all([dados, corpoDe(entrada, init, clone)])
+          .then(function (par) {
+            guardar({ ...descricao, corpo: par[1], json: par[0], em: Date.now() });
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // idem
     }
     return resposta;
   };

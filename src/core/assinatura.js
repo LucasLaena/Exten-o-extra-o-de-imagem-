@@ -59,9 +59,23 @@ export function detectarCursor({ url, corpo }) {
 }
 
 /** @returns {Assinatura|null} */
+/**
+ * A consulta identifica a query que o servidor deve rodar?
+ *
+ * GraphQL sem doc_id (ou query_hash) e um pedido vazio: o Instagram responde
+ * 500. Isso acontecia quando o corpo vinha dentro de um Request e a captura
+ * lia so o init — recusar aqui evita repetir a consulta quebrada.
+ */
+function temQueryIdentificada(url, corpo) {
+  if (!/\/graphql\/query/.test(url)) return true;
+  const onde = `${url} ${corpo ?? ""}`;
+  return /doc_id=|query_hash=|"doc_id"/.test(onde);
+}
+
 export function montarAssinatura({ url, metodo = "GET", headers = {}, corpo = null }) {
   const cursor = detectarCursor({ url, corpo });
   if (!cursor) return null;
+  if (!temQueryIdentificada(url, corpo)) return null;
 
   const filtrados = {};
   for (const [nome, valor] of Object.entries(headers)) {

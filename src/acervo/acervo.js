@@ -281,6 +281,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
 
     const teto = tetoDaIndexacao(pedidoDeEscopo());
     let r = null;
+    let motivoDoRecuo = null;
 
     // A coleta direta não abre aba nenhuma e não toma a tela: o computador
     // continua seu enquanto ela roda. Só quando ela não dá conta é que
@@ -328,10 +329,21 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         // Numa nota fixa, não na linha de estado: o progresso da aba
         // sobrescreveria a mensagem em menos de um segundo e o motivo se
         // perderia justamente quando mais importa.
+        motivoDoRecuo = erro.message;
         avisarRecuo(erro.message);
       } finally {
         await canal?.fechar();
       }
+    }
+
+    // Nada de rolar a pagina do Instagram: foi pedido explicitamente, mais
+    // de uma vez. Se a busca em segundo plano nao deu conta, o certo e dizer
+    // o motivo e parar — nao fazer justamente o que nao foi pedido.
+    if (!r && alvo.adaptador.id === "instagram") {
+      throw new Error(
+        `${motivoDoRecuo ?? "A busca em segundo plano nao deu conta."} ` +
+        "Clique em Diagnostico para ver qual passo falhou.",
+      );
     }
 
     if (!r) {

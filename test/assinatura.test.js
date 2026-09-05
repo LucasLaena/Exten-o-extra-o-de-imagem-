@@ -135,3 +135,54 @@ describe("montarAssinatura", () => {
     expect(HEADERS_RELEVANTES.every((h) => h === h.toLowerCase())).toBe(true);
   });
 });
+
+describe("consulta sem doc_id", () => {
+  // A v0.21.0 mandou uma consulta de GraphQL sem doc_id e o Instagram
+  // respondeu 500. A causa era a captura lendo so init.body e perdendo o
+  // corpo de dentro do Request. Recusar aqui e a rede de seguranca: a
+  // assinatura quebrada nunca chega a ser usada.
+  it("recusa GraphQL sem doc_id, em vez de mandar pedido vazio", () => {
+    expect(
+      montarAssinatura({
+        url: "https://www.instagram.com/graphql/query",
+        metodo: "POST",
+        corpo: "variables=%7B%7D",
+      }),
+    ).toBeNull();
+  });
+
+  it("recusa GraphQL sem corpo nenhum", () => {
+    expect(
+      montarAssinatura({
+        url: "https://www.instagram.com/graphql/query",
+        metodo: "POST",
+        corpo: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("aceita quando o doc_id esta no corpo", () => {
+    const a = montarAssinatura({
+      url: "https://www.instagram.com/graphql/query",
+      metodo: "POST",
+      corpo: "doc_id=987&variables=%7B%7D",
+    });
+    expect(a).not.toBeNull();
+    expect(a.paramCursor).toBe("after");
+  });
+
+  it("aceita quando o doc_id esta na url", () => {
+    expect(
+      montarAssinatura({
+        url: "https://www.instagram.com/graphql/query?doc_id=987",
+        metodo: "GET",
+      }),
+    ).not.toBeNull();
+  });
+
+  it("nao exige doc_id fora do GraphQL: la o cursor e o max_id", () => {
+    expect(
+      montarAssinatura({ url: "https://www.instagram.com/api/v1/feed/user/1/" }),
+    ).not.toBeNull();
+  });
+});

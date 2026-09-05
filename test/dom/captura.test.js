@@ -91,3 +91,57 @@ describe("captura", () => {
     for (const p of PADROES_DE_FEED) expect(fonte).toContain(p.source);
   });
 });
+
+describe("o corpo da consulta", () => {
+  // Sem o corpo nao ha doc_id nem variables, e a consulta repetida de fora
+  // chega vazia ao Instagram, que responde 500. Foi exatamente o que
+  // aconteceu na v0.21.0.
+  it("le o corpo de dentro do Request, e nao so de init", async () => {
+    fetchFalso.mockResolvedValue(respostaJson({ data: { x: 1 } }));
+    const pedido = new Request(URL_FEED, {
+      method: "POST",
+      body: "doc_id=987&variables=%7B%22id%22%3A%221%22%7D",
+    });
+
+    await window.fetch(pedido);
+
+    const [c] = await drenar();
+    expect(c.corpo).toContain("doc_id=987");
+    expect(c.corpo).toContain("variables=");
+  });
+
+  it("aceita URLSearchParams como corpo", async () => {
+    fetchFalso.mockResolvedValue(respostaJson({ data: { x: 1 } }));
+    await window.fetch(URL_FEED, {
+      method: "POST",
+      body: new URLSearchParams({ doc_id: "555" }),
+    });
+
+    const [c] = await drenar();
+    expect(c.corpo).toBe("doc_id=555");
+  });
+
+  it("nunca deixa o corpo virar [object Object]", async () => {
+    fetchFalso.mockResolvedValue(respostaJson({ data: { x: 1 } }));
+    const forma = new FormData();
+    forma.append("doc_id", "42");
+
+    await window.fetch(URL_FEED, { method: "POST", body: forma });
+
+    const [c] = await drenar();
+    expect(c.corpo).not.toContain("[object");
+    expect(c.corpo).toContain("doc_id=42");
+  });
+
+  it("guarda os cabecalhos que o endpoint exige", async () => {
+    fetchFalso.mockResolvedValue(respostaJson({ data: { x: 1 } }));
+    await window.fetch(URL_FEED, {
+      method: "POST",
+      headers: { "X-IG-App-ID": "936619743392459" },
+      body: "doc_id=1",
+    });
+
+    const [c] = await drenar();
+    expect(c.headers["x-ig-app-id"]).toBe("936619743392459");
+  });
+});
