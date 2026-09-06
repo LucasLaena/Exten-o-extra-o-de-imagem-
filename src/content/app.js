@@ -2,6 +2,7 @@ import { adaptadorDaUrl, chaveDePerfil } from "../adapters/index.js";
 import { ehDestaque, idDoDestaque } from "../adapters/destaques.js";
 import { montarBotao, desmontarBotao } from "./button.js";
 import { abrirModal, fecharModal } from "./modal.js";
+import { coletarNaPagina } from "./coleta.js";
 import { criarMensageiro, extensaoViva } from "./vida.js";
 
 export const INTERVALO_SONDAGEM_MS = 400;
@@ -142,12 +143,16 @@ export function iniciar() {
             }),
           aoAbrirAcervo: (args) =>
             enviar({ tipo: "abrirAcervo", perfil: args.profileKey }),
+          // A coleta acontece AQUI, nesta pagina. Nada de mandar o usuario
+          // para outra aba: e de dentro do proprio site que a requisicao
+          // passa e que a rolagem funciona.
           aoConfirmar: (pedido) =>
-            enviar({
-              tipo: "abrirAcervo",
-              perfil: pedido.profileKey,
-              acao: "baixar",
-              pedido,
+            coletarNaPagina({
+              adaptador,
+              handle,
+              profileKey,
+              teto: Number(pedido.ate) || null,
+              aoProgresso: pedido.aoProgresso,
             }),
         }),
     });

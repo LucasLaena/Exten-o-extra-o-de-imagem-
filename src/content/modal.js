@@ -75,6 +75,30 @@ export function fecharModal() {
  * Mostrar o custo de cada um antes da escolha é o ponto: sem isso a pessoa
  * escolhe às cegas entre cinco segundos e cinco minutos.
  */
+/**
+ * Traduz o progresso da coleta numa frase.
+ *
+ * Cada etapa tem um custo bem diferente — aprender a consulta leva
+ * segundos, paginar leva minutos — e não dizer em qual delas está é o que
+ * faz a espera parecer travamento.
+ */
+export function textoDoAndamento(p) {
+  if (!p) return "";
+  if (p.etapa === "lendo") {
+    return p.total
+      ? `Perfil lido: ${numero(p.total)} publicações ao todo.`
+      : "Perfil lido.";
+  }
+  if (p.etapa === "aprendida") return "Consulta aprendida. Buscando…";
+  if (typeof p.indexados === "number") {
+    return `${numero(p.indexados)} publicações${
+      p.total ? ` de ${numero(p.total)}` : ""
+    }…`;
+  }
+  if (p.aviso) return p.aviso;
+  return "";
+}
+
 export async function abrirModal({
   adaptador, handle, profileKey,
   carregarCatalogo, aoConfirmar, aoIndexar, aoAbrirAcervo,
@@ -184,6 +208,7 @@ export async function abrirModal({
       </section>
 
       <footer>
+        <p class="andamento" hidden></p>
         <button class="confirmar" type="button"></button>
         <div class="secundarios">
           <button class="abrir-acervo" type="button">Abrir Acervo completo</button>
@@ -247,17 +272,47 @@ export async function abrirModal({
   $(".fechar").addEventListener("click", fecharModal);
   $(".abrir-acervo").addEventListener("click", () => aoAbrirAcervo({ profileKey }));
 
-  confirmar.addEventListener("click", () => {
+  const andamento = $(".andamento");
+
+  /** Conta o que está acontecendo sem sumir com a mensagem anterior. */
+  function relatar(texto) {
+    andamento.hidden = !texto;
+    andamento.textContent = texto ?? "";
+  }
+
+  confirmar.addEventListener("click", async () => {
     const pedido = { ...estado, profileKey, handle, caminho };
 
-    if (caminho === "faixa") {
-      // Ordem do perfil e faixa fechada: dá para buscar só o pedido, sem
-      // varrer as 2.000 publicações do perfil.
-      aoConfirmar({ ...pedido, ordenacao: "sequencia", modo: "faixa", escopo: "faixa" });
-    } else {
+    if (caminho !== "faixa") {
       aoIndexar({ ...pedido, modo: "faixa", escopo: "tudo" });
+      fecharModal();
+      return;
     }
-    fecharModal();
+
+    // A coleta acontece aqui, nesta página. Fechar o modal agora esconderia
+    // justamente o que a pessoa quer ver acontecer.
+    confirmar.disabled = true;
+    relatar("Lendo o perfil…");
+
+    try {
+      const r = await aoConfirmar({
+        ...pedido,
+        ordenacao: "sequencia",
+        modo: "faixa",
+        escopo: "faixa",
+        aoProgresso: (p) => relatar(textoDoAndamento(p)),
+      });
+
+      relatar(
+        r && typeof r.indexados === "number"
+          ? `${r.indexados} publicações catalogadas.`
+          : "Pronto.",
+      );
+    } catch (erro) {
+      relatar(String(erro?.message ?? erro));
+    } finally {
+      confirmar.disabled = false;
+    }
   });
 
   document.addEventListener("keydown", aoTeclar);

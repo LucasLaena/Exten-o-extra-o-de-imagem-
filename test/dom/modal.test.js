@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ID_MODAL, estadoInicial, podeOrdenarPorRelevancia, abrirModal, fecharModal,
+  textoDoAndamento,
 } from "../../src/content/modal.js";
 import { instagram } from "../../src/adapters/instagram.js";
 
@@ -176,10 +177,43 @@ describe("o que o botão faz", () => {
     expect(aoConfirmar).toHaveBeenCalledWith(expect.objectContaining({ filtro: "videos" }));
   });
 
-  it("fecha depois de confirmar, em vez de ficar no caminho", async () => {
+  it("fica aberto ao confirmar a faixa: e aqui que a coleta acontece", async () => {
+    // Mudou de proposito. A coleta passou a rodar nesta pagina, e fechar o
+    // modal esconderia justamente o que a pessoa quer ver acontecer.
     await abrir();
     $(".confirmar").click();
-    expect(document.getElementById(ID_MODAL)).toBeNull();
+    await Promise.resolve();
+
+    expect(document.getElementById(ID_MODAL)).not.toBeNull();
+  });
+
+  it("conta o andamento enquanto coleta", async () => {
+    let relatar;
+    await abrir({
+      aoConfirmar: (pedido) => {
+        relatar = pedido.aoProgresso;
+        return new Promise(() => {});
+      },
+    });
+
+    $(".confirmar").click();
+    await Promise.resolve();
+
+    relatar({ indexados: 42, total: 2565 });
+    expect($(".andamento").hidden).toBe(false);
+    expect($(".andamento").textContent).toContain("42");
+  });
+
+  it("mostra a falha em vez de fechar em silencio", async () => {
+    await abrir({
+      aoConfirmar: () => Promise.reject(new Error("nao vi a consulta do feed")),
+    });
+
+    $(".confirmar").click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect($(".andamento").textContent).toContain("nao vi a consulta");
+    expect(document.getElementById(ID_MODAL)).not.toBeNull();
   });
 });
 
@@ -239,5 +273,22 @@ describe("resiliência e fechamento", () => {
     await abrir();
     const texto = raiz().textContent.toLowerCase();
     expect(texto).not.toMatch(/\bdownload\b|\brange\b|\bmedia type\b/);
+  });
+});
+
+describe("texto do andamento", () => {
+  it("diz em que etapa esta, porque elas custam coisas diferentes", () => {
+    expect(textoDoAndamento({ etapa: "lendo", total: 2565 })).toContain("2.565");
+    expect(textoDoAndamento({ etapa: "aprendida" })).toMatch(/aprendida/i);
+    expect(textoDoAndamento({ indexados: 100, total: 2565 })).toContain("100");
+  });
+
+  it("nao inventa frase quando nao ha o que dizer", () => {
+    expect(textoDoAndamento(null)).toBe("");
+    expect(textoDoAndamento({})).toBe("");
+  });
+
+  it("repassa aviso cru, que costuma trazer a causa", () => {
+    expect(textoDoAndamento({ aviso: "429, tentando de novo" })).toContain("429");
   });
 });

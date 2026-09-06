@@ -249,7 +249,14 @@ export function cssDoModal(plataforma) {
       color: var(--acervo-grafite);
     }
 
-    footer {
+    .andamento {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--acervo-tinta-fraca, #6b7280);
+}
+
+footer {
       padding: 16px 20px 20px;
       border-top: 1px solid var(--acervo-linha);
     }
