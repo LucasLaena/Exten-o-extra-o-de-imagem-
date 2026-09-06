@@ -47,9 +47,32 @@ const registro = criarRegistro();
  * Nunca passa por redesenhar(): foi justamente o redesenho que vinha apagando
  * o erro no instante em que ele aparecia.
  */
+/**
+ * O log fica guardado ate ser pedido.
+ *
+ * Ele nasceu aberto e virou estorvo por cima da grade. A informacao continua
+ * inteira; so deixa de disputar espaco com o que a pessoa veio ver.
+ */
+let logAberto = false;
+
+function alternarLog() {
+  logAberto = !logAberto;
+  desenharRegistro();
+}
+
 function desenharRegistro() {
   const linhas = registro.todas();
-  $("registro").hidden = linhas.length === 0;
+  const temErro = linhas.some((l) => l.tipo === "erro");
+
+  $("registro").hidden = !logAberto || linhas.length === 0;
+
+  // Um aviso no proprio botao: erro que ninguem ve e erro que nao existe.
+  const botao = $("verLog");
+  if (botao) {
+    botao.textContent = temErro ? "Log ⚠" : "Log";
+    botao.classList.toggle("comErro", temErro);
+    botao.disabled = linhas.length === 0;
+  }
 
   const lista = $("registroLinhas");
   lista.textContent = "";
@@ -823,6 +846,7 @@ async function iniciar() {
 
   $("indexar").addEventListener("click", indexar);
   $("copiarRegistro").addEventListener("click", copiarRegistro);
+  $("verLog").addEventListener("click", alternarLog);
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);
   $("cancelar").addEventListener("click", () => cancelador?.abort());

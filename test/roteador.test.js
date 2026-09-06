@@ -49,3 +49,74 @@ describe("aoReceberMensagem", () => {
   });
 
 });
+
+describe("guardar o que a pagina coletou", () => {
+  // A coleta acontece na pagina do Instagram e vive na memoria daquela aba.
+  // O Acervo tem banco proprio: sem esta passagem, catalogar dava certo e a
+  // grade continuava vazia.
+  function bancoFalso() {
+    const posts = [];
+    const perfis = new Map();
+    return {
+      posts: {
+        limparTudo: vi.fn(async () => { posts.length = 0; }),
+        salvarLote: vi.fn(async (lote) => { posts.push(...lote); }),
+        todos: () => posts,
+      },
+      perfis: {
+        salvar: vi.fn(async (p) => { perfis.set(p.key, p); }),
+        obter: async (k) => perfis.get(k),
+      },
+    };
+  }
+
+  const guardar = (banco, mensagem) =>
+    criarRoteador(apiFalsa(), { abrirRepo: async () => banco }).aoReceberMensagem({
+      tipo: "guardarPosts",
+      profileKey: "ig:@jorgekotz",
+      ...mensagem,
+    });
+
+  it("guarda os posts onde a grade consegue le-los", async () => {
+    const banco = bancoFalso();
+    const r = await guardar(banco, {
+      posts: [{ key: "a", seq: 1 }, { key: "b", seq: 2 }],
+      total: 2565,
+      completo: false,
+    });
+
+    expect(r).toEqual({ guardados: 2 });
+    expect(banco.posts.todos()).toHaveLength(2);
+  });
+
+  it("substitui em vez de somar: catalogar de novo comeca do zero", async () => {
+    const banco = bancoFalso();
+    await guardar(banco, { posts: [{ key: "velho" }] });
+    await guardar(banco, { posts: [{ key: "novo" }] });
+
+    expect(banco.posts.limparTudo).toHaveBeenCalledTimes(2);
+    expect(banco.posts.todos().map((p) => p.key)).toEqual(["novo"]);
+  });
+
+  it("anota o perfil, para a tela saber quanto foi e quanto falta", async () => {
+    const banco = bancoFalso();
+    await guardar(banco, {
+      posts: [{ key: "a" }],
+      total: 2565,
+      completo: true,
+    });
+
+    const perfil = await banco.perfis.obter("ig:@jorgekotz");
+    expect(perfil.totalIndexado).toBe(1);
+    expect(perfil.totalDeclarado).toBe(2565);
+    expect(perfil.completo).toBe(true);
+  });
+
+  it("coleta vazia nao explode, e ainda assim zera o que havia", async () => {
+    const banco = bancoFalso();
+    await guardar(banco, { posts: [] });
+
+    expect(banco.posts.limparTudo).toHaveBeenCalled();
+    expect(banco.posts.salvarLote).not.toHaveBeenCalled();
+  });
+});

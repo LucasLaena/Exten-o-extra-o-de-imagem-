@@ -146,14 +146,32 @@ export function iniciar() {
           // A coleta acontece AQUI, nesta pagina. Nada de mandar o usuario
           // para outra aba: e de dentro do proprio site que a requisicao
           // passa e que a rolagem funciona.
-          aoConfirmar: (pedido) =>
-            coletarNaPagina({
+          aoConfirmar: async (pedido) => {
+            const r = await coletarNaPagina({
               adaptador,
               handle,
               profileKey,
               teto: Number(pedido.ate) || null,
               aoProgresso: pedido.aoProgresso,
-            }),
+            });
+
+            // O que a coleta juntou vive na memoria DESTA aba. O Acervo tem
+            // banco proprio e nao alcanca isto: sem a passagem, catalogar
+            // dava certo e a grade continuava vazia.
+            pedido.aoProgresso?.({ aviso: "Guardando o catálogo…" });
+            await enviar({
+              tipo: "guardarPosts",
+              profileKey,
+              posts: r.posts,
+              total: r.total,
+              completo: r.completo,
+            });
+
+            // Abrir sozinho: ate aqui era preciso clicar de novo para ver o
+            // que acabou de ser catalogado.
+            await enviar({ tipo: "abrirAcervo", perfil: profileKey, pedido });
+            return r;
+          },
         }),
     });
   });

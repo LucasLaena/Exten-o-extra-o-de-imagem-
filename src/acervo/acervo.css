@@ -474,3 +474,8 @@ button:focus-visible {
 .registro li.fim .texto {
   font-weight: 600;
 }
+
+#verLog.comErro {
+  border-color: var(--erro, #b42318);
+  color: var(--erro, #b42318);
+}

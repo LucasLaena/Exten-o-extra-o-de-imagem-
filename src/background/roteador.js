@@ -55,6 +55,28 @@ export function criarRoteador(api, { abrirRepo = abrirRepoPadrao } = {}) {
           completo: Boolean(perfil?.completo),
         };
       }
+      // A coleta agora acontece na pagina do Instagram, e o que ela junta vive
+      // na memoria daquela aba. O Acervo tem banco proprio e nao alcanca
+      // aquilo: sem esta passagem, catalogar funcionava e a grade continuava
+      // vazia — que foi exatamente o que o usuario viu.
+      case "guardarPosts": {
+        const banco = await repo();
+        const posts = mensagem.posts ?? [];
+
+        // Catalogar substitui, nao soma: somar misturava coletas de filtros
+        // diferentes e a lista so crescia.
+        await banco.posts.limparTudo();
+        if (posts.length > 0) await banco.posts.salvarLote(posts);
+
+        await banco.perfis.salvar({
+          key: mensagem.profileKey,
+          totalIndexado: posts.length,
+          totalDeclarado: mensagem.total ?? null,
+          completo: Boolean(mensagem.completo),
+          indexadoEm: Date.now(),
+        });
+        return { guardados: posts.length };
+      }
       case "abrirAcervo": {
         await abrirAcervo({
           perfil: mensagem.perfil,
