@@ -554,7 +554,28 @@ button:focus-visible {
   padding: 14px 18px;
   border-top: 1px solid var(--linha);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rodape-nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--apagado);
+}
+
+/* O X e a saida mais obvia da janela: precisa ser visto sem procurar. */
+.baixando > header .fechar-painel {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  color: var(--texto);
+}
+
+.baixando > header .fechar-painel:hover {
+  background: var(--campo-alto);
 }
 
 /* --- log ------------------------------------------------------------------ */

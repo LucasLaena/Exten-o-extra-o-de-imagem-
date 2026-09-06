@@ -888,25 +888,34 @@ async function iniciar() {
   $("copiarRegistro").addEventListener("click", copiarRegistro);
   $("verLog").addEventListener("click", alternarLog);
   $("pararDownload").addEventListener("click", () => {
-    if (cancelador) {
-      $("progressoTexto").textContent = "Parando…";
-      cancelador.abort();
+    if (!cancelador) {
+      $("progresso").hidden = true;
       return;
     }
-    $("progresso").hidden = true;
+    $("progressoTexto").textContent = "Parando…";
+    cancelador.abort();
+
+    // Se o cancelamento nao chegar — requisicao pendurada que nao ouve o
+    // sinal —, a tela volta assim mesmo. Nunca deixar o usuario preso.
+    setTimeout(() => {
+      if (!$("progresso").hidden) $("progresso").hidden = true;
+    }, 3000);
   });
 
-  // Duas saidas a mais, porque a janela cobre tudo: Esc e clique no fundo.
-  // So valem quando nada esta rodando — fechar sem querer no meio de um
-  // download longo seria pior que a falta de saida.
+  // Fechar a janela NAO cancela o download: sao coisas diferentes, e trata-las
+  // como uma so foi o que prendeu a tela. Quem quer parar aperta Parar; quem
+  // so quer a tela de volta fecha, e o andamento segue na linha de estado.
+  //
+  // Por isso as saidas sao incondicionais. Janela que cobre tudo e nao fecha e
+  // pior que qualquer clique errado.
   $("progresso").addEventListener("click", (evento) => {
-    if (evento.target === $("progresso") && !cancelador) $("progresso").hidden = true;
+    if (evento.target === $("progresso")) $("progresso").hidden = true;
   });
 
   document.addEventListener("keydown", (evento) => {
     if (evento.key !== "Escape") return;
-    if (!$("progresso").hidden && !cancelador) $("progresso").hidden = true;
-    if (!$("diagPainel").hidden) $("diagPainel").hidden = true;
+    $("progresso").hidden = true;
+    $("diagPainel").hidden = true;
   });
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);

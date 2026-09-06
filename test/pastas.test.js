@@ -11,12 +11,37 @@ const args = (p = {}) => ({
 });
 
 describe("pastaDoArquivo", () => {
-  it("põe foto e vídeo do feed juntos", () => {
-    expect(pastaDoArquivo(args())).toBe("feed");
+  it("separa foto de vídeo no feed", () => {
+    // Mudou de proposito: eles tem usos e pesos muito diferentes, e quem foi
+    // atras dos videos nao quer garimpa-los no meio de centenas de imagens.
+    expect(pastaDoArquivo(args())).toBe("feed/fotos");
     expect(pastaDoArquivo(args({
       post: { tipo: "video", id: "V" },
       midia: { origem: "publicacao", kind: "video" },
-    }))).toBe("feed");
+    }))).toBe("feed/videos");
+  });
+
+  it("separa tambem dentro de um destaque", () => {
+    const comum = { post: { tipo: "foto", id: "A", destaque: "Vlogs" } };
+    expect(pastaDoArquivo(args({
+      ...comum,
+      midia: { origem: "destaque", kind: "foto" },
+    }))).toBe("destaques/Vlogs/fotos");
+    expect(pastaDoArquivo(args({
+      ...comum,
+      midia: { origem: "destaque", kind: "video" },
+    }))).toBe("destaques/Vlogs/videos");
+  });
+
+  it("no carrossel o album continua inteiro", () => {
+    // A excecao e deliberada: ali a unidade e o album, e separar por tipo
+    // desmontaria justamente o que a pasta existe para manter junto.
+    const base = { post: { tipo: "carrossel", id: "ABC" }, posicao: 42, largura: 3 };
+    expect(pastaDoArquivo(args({
+      ...base, midia: { origem: "carrossel", kind: "foto", ordem: 0 },
+    }))).toBe(pastaDoArquivo(args({
+      ...base, midia: { origem: "carrossel", kind: "video", ordem: 1 },
+    })));
   });
 
   it("dá pasta própria a cada carrossel, para as páginas ficarem juntas", () => {
@@ -46,16 +71,18 @@ describe("pastaDoArquivo", () => {
   it("agrupa destaque pelo nome do destaque", () => {
     const pasta = pastaDoArquivo(args({
       post: { tipo: "video", id: "D", destaque: "Viagens 2024" },
-      midia: { origem: "destaque" },
+      midia: { origem: "destaque", kind: "video" },
     }));
-    expect(pasta).toBe("destaques/Viagens 2024");
+    expect(pasta).toBe("destaques/Viagens 2024/videos");
   });
 
   it("destaque sem nome não vira pasta vazia", () => {
+    // Sem nome de destaque sobra o guarda-chuva, mas a separacao por tipo
+    // continua valendo: e ela que faz a pasta ser navegavel.
     expect(pastaDoArquivo(args({
       post: { tipo: "foto", id: "D" },
-      midia: { origem: "destaque" },
-    }))).toBe("destaques");
+      midia: { origem: "destaque", kind: "foto" },
+    }))).toBe("destaques/fotos");
   });
 
   it("capa vence carrossel: ela nunca se mistura com as páginas", () => {

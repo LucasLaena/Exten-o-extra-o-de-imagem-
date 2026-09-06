@@ -6,11 +6,18 @@
  * vídeo. A separação por origem resolve isso na hora de abrir o ZIP, sem
  * precisar consultar o CSV.
  *
- * Carrossel ganha pasta própria por publicação, para as páginas de um mesmo
- * álbum ficarem juntas e na ordem.
+ * Foto e vídeo vão para pastas separadas. Eles têm usos diferentes e pesos
+ * muito diferentes: quem foi atrás dos vídeos não quer garimpá-los no meio de
+ * centenas de imagens.
+ *
+ * Carrossel é a exceção, e de propósito: ali o álbum é a unidade. Separar as
+ * páginas por tipo desmontaria justamente o que a pasta existe para manter
+ * junto e na ordem.
  */
 
 export const PASTA_FEED = "feed";
+export const PASTA_FOTOS = "fotos";
+export const PASTA_VIDEOS = "videos";
 export const PASTA_CARROSSEL = "carrossel";
 export const PASTA_CAPAS = "capas";
 export const PASTA_DESTAQUES = "destaques";
@@ -26,7 +33,8 @@ export function pastaDoArquivo({ post, midia, ehCapa, posicao, largura }) {
   if (midia?.origem === "destaque") {
     // O nome do destaque vem no post; sem ele, tudo num guarda-chuva só.
     const titulo = sanitizarPasta(post?.destaque ?? "");
-    return titulo ? `${PASTA_DESTAQUES}/${titulo}` : PASTA_DESTAQUES;
+    const base = titulo ? `${PASTA_DESTAQUES}/${titulo}` : PASTA_DESTAQUES;
+    return `${base}/${porTipo(midia)}`;
   }
 
   if (post?.tipo === "carrossel" || midia?.origem === "carrossel") {
@@ -35,7 +43,12 @@ export function pastaDoArquivo({ post, midia, ehCapa, posicao, largura }) {
     return `${PASTA_CARROSSEL}/${numero}${id ? `_${id}` : ""}`;
   }
 
-  return PASTA_FEED;
+  return `${PASTA_FEED}/${porTipo(midia)}`;
+}
+
+/** Vídeo ou foto. O kind da mídia manda; o tipo do post é só o desempate. */
+function porTipo(midia) {
+  return midia?.kind === "video" ? PASTA_VIDEOS : PASTA_FOTOS;
 }
 
 /** Nome de pasta seguro: sem separador, sem o que o Windows recusa. */
