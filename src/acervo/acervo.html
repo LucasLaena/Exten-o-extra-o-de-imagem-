@@ -81,8 +81,8 @@
         <span>Por linha</span>
         <select id="porLinha">
           <option value="3">3 grandes</option>
-          <option value="6" selected>6</option>
-          <option value="10">10</option>
+          <option value="6">6</option>
+          <option value="10" selected>10</option>
           <option value="16">16 miúdas</option>
         </select>
       </label>
@@ -121,14 +121,36 @@
       <ol id="diagLista"></ol>
     </aside>
 
-    <aside class="painel" id="progresso" hidden>
-      <div class="painel-topo">
-        <h2>Baixando</h2>
-        <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Fechar">×</button>
-      </div>
-      <p id="progressoTexto"></p>
-      <ol id="partes"></ol>
-    </aside>
+    <div class="cortina" id="progresso" hidden>
+      <section
+        class="baixando"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="progressoTitulo"
+      >
+        <header>
+          <h2 id="progressoTitulo">Baixando</h2>
+          <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Fechar">×</button>
+        </header>
+
+        <p class="contagem">
+          <strong id="progressoFeitos">0</strong><span id="progressoTotal"></span>
+        </p>
+
+        <div class="barra-progresso" role="progressbar" aria-labelledby="progressoTitulo"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressoBarra">
+          <span id="progressoPreenchido"></span>
+        </div>
+
+        <p class="agora" id="progressoTexto">Preparando…</p>
+
+        <ol id="partes" aria-label="Partes concluídas"></ol>
+
+        <footer>
+          <button id="pararDownload" type="button" class="perigo">Parar download</button>
+        </footer>
+      </section>
+    </div>
 
     <script type="module" src="acervo.js"></script>
   </body>

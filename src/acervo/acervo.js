@@ -116,6 +116,15 @@ async function copiarRegistro() {
   setTimeout(() => { botao.textContent = rotulo; }, 2000);
 }
 
+/** A barra so anda quando ha um total contra o qual medir. */
+function marcarProgresso(feitos, total) {
+  const barra = $("progressoBarra");
+  const pct = total > 0 ? Math.min(100, Math.round((feitos / total) * 100)) : 0;
+  barra.setAttribute("aria-valuenow", String(pct));
+  barra.classList.toggle("indeterminada", total <= 0);
+  $("progressoPreenchido").style.width = `${pct}%`;
+}
+
 const anotar = (texto, tipo = "passo") => {
   registro.anotar(texto, tipo);
   desenharRegistro();
@@ -701,11 +710,30 @@ async function baixar() {
     dizer("Sem pasta escolhida: baixando em modo memória, com partes limitadas a 500 MB.");
   }
 
+  const opcoesDeMidia = {
+    filtro: $("filtro").value,
+    incluirCapaReel: $("incluirCapaReel").checked,
+    ordenacao: $("ordenacao").value,
+  };
+
+  // Quantos arquivos ao todo, contados antes de comecar. Sem este numero a
+  // barra nao teria destino, e barra sem destino e enfeite.
+  const totalDeArquivos = selecionados.reduce(
+    (soma, post) => soma + alvo.adaptador.midiasParaBaixar(post, opcoesDeMidia).length,
+    0,
+  );
+
   const controle = new AbortController();
   cancelador = controle;
   $("cancelar").hidden = false;
   $("progresso").hidden = false;
   $("partes").innerHTML = "";
+  $("progressoFeitos").textContent = "0";
+  $("progressoTotal").textContent = totalDeArquivos
+    ? ` de ${numero(totalDeArquivos)} arquivos`
+    : " arquivos";
+  $("progressoTexto").textContent = "Preparando…";
+  marcarProgresso(0, totalDeArquivos);
 
   const baixador = criarBaixador({
     adaptador: alvo.adaptador,
@@ -719,7 +747,9 @@ async function baixar() {
     escreverTexto: destino.escreverTexto,
     aoProgresso: (evento) => {
       if (evento.tipo === "arquivo") {
-        $("progressoTexto").textContent = `${numero(evento.arquivos)} arquivos · ${evento.nome}`;
+        $("progressoFeitos").textContent = numero(evento.arquivos);
+        $("progressoTexto").textContent = evento.nome;
+        marcarProgresso(evento.arquivos, totalDeArquivos);
       } else {
         const li = document.createElement("li");
         li.textContent = `${evento.nome} — parte ${evento.n} de ${evento.de}`;
@@ -735,11 +765,7 @@ async function baixar() {
       profileKey: alvo.profileKey,
       posts: selecionados,
       posicoes,
-      opcoes: {
-        filtro: $("filtro").value,
-        incluirCapaReel: $("incluirCapaReel").checked,
-        ordenacao: $("ordenacao").value,
-      },
+      opcoes: opcoesDeMidia,
       sinal: controle.signal,
     });
     dizer(
@@ -749,9 +775,13 @@ async function baixar() {
     );
   } catch (erro) {
     dizer(`Download interrompido: ${erro.message}`);
+    $("progressoTexto").textContent = `Parou: ${erro.message}`;
   } finally {
     cancelador = null;
     $("cancelar").hidden = true;
+    // A janela fica: o resultado, com as partes e as falhas, e o que a
+    // pessoa precisa ler depois que tudo termina.
+    $("pararDownload").hidden = true;
     await redesenhar();
   }
 }
@@ -807,7 +837,7 @@ async function iniciar() {
 
   grade = criarGrade({
     container: $("grade"),
-    colunas: Number($("porLinha").value) || 6,
+    colunas: Number($("porLinha").value) || 10,
     renderizar: renderizarItem,
     aoMudarSelecao: (marcadas) => {
       $("baixar").textContent =
@@ -847,6 +877,10 @@ async function iniciar() {
   $("indexar").addEventListener("click", indexar);
   $("copiarRegistro").addEventListener("click", copiarRegistro);
   $("verLog").addEventListener("click", alternarLog);
+  $("pararDownload").addEventListener("click", () => {
+    $("progressoTexto").textContent = "Parando…";
+    cancelador?.abort();
+  });
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);
   $("cancelar").addEventListener("click", () => cancelador?.abort());
