@@ -78,11 +78,14 @@ export function criarAprendiz({
     // problemas diferentes, e confundi-los ja custou rodadas de diagnostico.
     let vistas = 0;
     let recusadas = 0;
+    let enderecos = 0;
 
     for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
       if (sinal?.aborted) throw new ErroDeAssinatura("Cancelado.");
 
       for (const captura of await canal.drenar()) {
+        if (pareceFeed(captura?.url)) enderecos++;
+
         const pagina = avaliar(captura, idDoDono, adaptador);
         if (!pagina) continue;
         vistas++;
@@ -105,11 +108,26 @@ export function criarAprendiz({
       await esperar(ESPERA_MS, sinal);
     }
 
+    if (recusadas > 0) {
+      throw new ErroDeAssinatura(
+        `Vi ${recusadas} consulta(s) do feed, mas sem o doc_id que permite ` +
+        "repeti-las. O Instagram deve ter mudado o formato.",
+      );
+    }
+
+    // Houve conversa com o /graphql/query, mas nada que trouxesse publicação:
+    // era telemetria. Dizer só "não consultou o feed" aqui manda procurar a
+    // causa no lugar errado.
+    if (enderecos > 0) {
+      throw new ErroDeAssinatura(
+        `A página fez ${enderecos} consulta(s), mas nenhuma trazia publicações ` +
+        "— eram de telemetria. Ela só pede o feed quando alguém rola a grade.",
+      );
+    }
+
     throw new ErroDeAssinatura(
-      recusadas > 0
-        ? `Vi ${recusadas} consulta(s) do feed, mas sem o doc_id que permite ` +
-          "repeti-las. O Instagram deve ter mudado o formato."
-        : "A página do perfil não consultou o feed no tempo esperado.",
+      "A página do perfil não consultou o feed no tempo esperado. " +
+      "Ela só faz essa consulta quando alguém rola a grade de publicações.",
     );
   }
 

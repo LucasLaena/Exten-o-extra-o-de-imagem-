@@ -147,7 +147,10 @@ describe("telemetria nao passa por feed", () => {
     const canal = canalFalso({ capturas: [[telemetria()]] });
     const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
     expect(erro).toBeTruthy();
-    expect(erro.message).toMatch(/não consultou o feed/i);
+    // Houve conversa com o graphql, so nao era feed. Dizer "nao consultou"
+    // aqui mandaria procurar a causa no lugar errado.
+    expect(erro.message).toMatch(/nenhuma trazia publicações/i);
+    expect(erro.message).toMatch(/telemetria/i);
   });
 
   it("escolhe a consulta do feed no meio da telemetria", async () => {
@@ -172,7 +175,7 @@ describe("telemetria nao passa por feed", () => {
     };
     const canal = canalFalso({ capturas: [[vazia]] });
     const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
-    expect(erro.message).toMatch(/não consultou o feed/i);
+    expect(erro.message).toMatch(/nenhuma trazia publicações/i);
   });
 
   it("resposta que nem parseia nao derruba a busca", async () => {
@@ -180,5 +183,18 @@ describe("telemetria nao passa por feed", () => {
     const canal = canalFalso({ capturas: [[quebrada], [capturaBoa()]] });
     const r = await aprender(canal);
     expect(r.assinatura).toBeTruthy();
+  });
+});
+
+describe("silencio total tem mensagem propria", () => {
+  it("explica que a pagina so consulta o feed ao rolar", async () => {
+    // Descoberto no trafego real: as 12 primeiras publicacoes vem no HTML, e
+    // a consulta de paginacao so dispara na rolagem. Aba de segundo plano nao
+    // e renderizada, entao parada ela nunca consulta.
+    const canal = canalFalso({ capturas: [[]] });
+    const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
+
+    expect(erro.message).toMatch(/não consultou o feed/i);
+    expect(erro.message).toMatch(/rola/i);
   });
 });

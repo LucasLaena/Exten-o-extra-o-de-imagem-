@@ -14,12 +14,17 @@ import { buscarJson, drenarCapturas, rolarUmPouco } from "./sondas.js";
  * fora, o que também escapa do afogamento de temporizador que trava a rolagem
  * em aba de fundo.
  *
- * @param {{ executor: object, urlDoPerfil: string }} args
+ * reusar:true entrega a aba que o usuario ja tinha aberta. Vale a pena
+ * tentar primeiro: a pagina so consulta o feed quando alguem rola, e uma aba
+ * ja usada costuma ter essa consulta guardada no buffer. Uma aba recem-aberta
+ * e parada nunca vai ter.
+ *
+ * @param {{ executor: object, urlDoPerfil: string, reusar?: boolean }} args
  */
-export async function abrirCanal({ executor, urlDoPerfil }) {
+export async function abrirCanal({ executor, urlDoPerfil, reusar = false }) {
   const aba = await executor.acharOuAbrirAba(urlDoPerfil, {
     visivel: false,
-    reusar: false,
+    reusar,
   });
 
   /** Mesma forma de `fetch`, para o coletor não saber que é por aba. */

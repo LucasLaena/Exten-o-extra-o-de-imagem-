@@ -389,19 +389,56 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         // A aba nasce escondida e fica parada. Ela não existe para rolar: é só
         // o endereço de rede de onde as consultas saem como sendo do próprio
         // site. Quem comanda é esta aba aqui, de fora.
-        anotar("abrindo aba em segundo plano");
-        canal = await abrirCanal({ executor, urlDoPerfil: alvo.urlDoPerfil });
-        anotar(`aba ${canal.abaId} aberta e parada`);
-
         dizer("Aprendendo a consulta do perfil…");
-        anotar("procurando a consulta que a página faz (até 30s)");
-        const { assinatura, pagina } = await criarAprendiz().aprender({
-          canal,
-          idDoDono: perfil.userId,
-          adaptador: alvo.adaptador,
-          aoProgresso: relatarProgresso,
-          sinal: controle.signal,
-        });
+
+        // A pagina so consulta o feed quando alguem rola, e aba de segundo
+        // plano nao e renderizada — entao uma aba recem-aberta nunca vai
+        // consultar sozinha. Ja a aba que o usuario usou costuma ter a
+        // consulta guardada no buffer, de graca.
+        let aprendido = null;
+        for (const tentativa of [
+          { reusar: true, tentativas: 6, conta: "aba que já estava aberta" },
+          { reusar: false, tentativas: 40, conta: "aba nova em segundo plano" },
+        ]) {
+          if (canal) {
+            await canal.fechar();
+            canal = null;
+          }
+
+          anotar(`tentando pela ${tentativa.conta}`);
+          canal = await abrirCanal({
+            executor,
+            urlDoPerfil: alvo.urlDoPerfil,
+            reusar: tentativa.reusar,
+          });
+          anotar(`aba ${canal.abaId} em uso`);
+
+          try {
+            aprendido = await criarAprendiz({
+              tentativas: tentativa.tentativas,
+            }).aprender({
+              canal,
+              idDoDono: perfil.userId,
+              adaptador: alvo.adaptador,
+              aoProgresso: relatarProgresso,
+              sinal: controle.signal,
+            });
+            break;
+          } catch (erro) {
+            anotar(`não deu pela ${tentativa.conta}: ${erro.message}`);
+            if (controle.signal.aborted) throw erro;
+          }
+        }
+
+        if (!aprendido) {
+          throw new Error(
+            "Não consegui ver a consulta do feed. Abra o perfil numa aba, " +
+            "role a grade uma vez, e clique em Indexar de novo — a partir daí " +
+            "a coleta corre sozinha, sem rolagem.",
+          );
+        }
+
+        const { assinatura, pagina } = aprendido;
 
         anotar(
           `consulta aprendida: ${String(assinatura.url).replace(/^https?:\/\/[^/]+/, "")}` +
