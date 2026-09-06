@@ -153,7 +153,7 @@ describe("o que o botão faz", () => {
 
   it("o rótulo do botão diz o que vai acontecer em cada caminho", async () => {
     await abrir({ carregarCatalogo: async () => catalogo({ completo: false, totalIndexado: 0 }) });
-    expect($(".confirmar").textContent).toBe("Baixar publicações 1–100");
+    expect($(".confirmar").textContent).toBe("Catalogar publicações 1–100");
 
     escolherCaminho("filtros");
     expect($(".confirmar").textContent).toMatch(/catalogar/i);

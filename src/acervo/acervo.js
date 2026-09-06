@@ -361,7 +361,16 @@ function relatarProgresso({ indexados, paginas, total, aviso, rolando, paradas, 
   dizer(`Buscando… ${quanto} · ${como}`);
 }
 
-async function indexar({ eDepoisBaixar = false } = {}) {
+/**
+ * Cataloga, e para por aí.
+ *
+ * Catalogar e baixar eram um gesto só no caminho por faixa. Na prática
+ * isso fazia a janela de download — que cobre a tela inteira — aparecer
+ * no fim de toda coleta, sem ninguém ter pedido, prendendo a navegação.
+ *
+ * Baixar agora é sempre um clique do usuário, no botão que diz Baixar.
+ */
+async function indexar() {
   registro.limpar();
   anotar(`indexar: ${$("urlPerfil").value || "(campo vazio)"}`);
 
@@ -556,24 +565,6 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     await redesenhar();
   }
 
-  // No caminho por faixa não há nada para escolher: buscar e baixar são o
-  // mesmo gesto, e parar no meio faria a aba virar trampolim de novo.
-  if (!eDepoisBaixar) return;
-
-  if (cancelador) {
-    dizer("Cancelado antes de baixar.");
-    return;
-  }
-  if (posts.length === 0) {
-    dizer(
-      "Nada foi catalogado, então não há o que baixar. " +
-      "Clique em Diagnóstico para ver qual passo falhou.",
-    );
-    return;
-  }
-
-  dizer(`Catalogadas ${numero(posts.length)}. Preparando o download…`);
-  await baixar();
 }
 
 /**
@@ -956,8 +947,8 @@ async function iniciar() {
   const { acao, busca } = consumirAcao(location.search);
   if (acao) history.replaceState(null, "", location.pathname + busca);
 
-  if (acao === "indexar") indexar();
-  if (acao === "baixar") indexar({ eDepoisBaixar: true });
+  // "baixar" cataloga e para: quem baixa é o usuário, no botão.
+  if (acao === "indexar" || acao === "baixar") indexar();
   if (acao === "destaque" && pedido?.destaque) {
     baixarDestaque(pedido.destaque, pedido.urlDoDestaque);
   }

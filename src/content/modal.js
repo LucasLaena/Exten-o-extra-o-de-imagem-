@@ -35,11 +35,13 @@ export function podeOrdenarPorRelevancia(catalogo) {
 }
 
 export function rotuloDoBotao(estado, catalogo, marcadas = 0) {
-  if (estado.modo === "tudo") return `Baixar tudo (${numero(catalogo?.totalIndexado ?? 0)})`;
+  if (estado.modo === "tudo") return `Catalogar tudo (${numero(catalogo?.totalIndexado ?? 0)})`;
   if (estado.modo === "manual") {
-    return marcadas > 0 ? `Baixar ${numero(marcadas)} marcadas` : "Nenhuma publicação marcada";
+    return marcadas > 0
+      ? `Catalogar ${numero(marcadas)} marcadas`
+      : "Nenhuma publicação marcada";
   }
-  return `Baixar publicações ${estado.de}–${estado.ate}`;
+  return `Catalogar publicações ${estado.de}–${estado.ate}`;
 }
 
 /**
@@ -243,7 +245,9 @@ export async function abrirModal({
       const quantas = Math.abs(estado.ate - estado.de) + 1;
       $(".caminho-custo").textContent =
         `buscar ${numero(quantas)}, ${estimarTempo(quantas)}`;
-      confirmar.textContent = `Baixar publicações ${estado.de}–${estado.ate}`;
+      // Uma fonte só para o rótulo: mantido em dois lugares, ele divergiu —
+      // rotuloDoBotao ja dizia Catalogar e a tela seguia prometendo Baixar.
+      confirmar.textContent = rotuloDoBotao({ ...estado, modo: "faixa" }, catalogo);
     } else {
       confirmar.textContent = jaCatalogado
         ? "Abrir o Acervo para escolher"
@@ -305,7 +309,7 @@ export async function abrirModal({
 
       relatar(
         r && typeof r.indexados === "number"
-          ? `${r.indexados} publicações catalogadas.`
+          ? `${r.indexados} publicações catalogadas. Abrindo o Acervo para você escolher e baixar.`
           : "Pronto.",
       );
     } catch (erro) {
