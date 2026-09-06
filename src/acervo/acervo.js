@@ -9,6 +9,7 @@ import { criarAprendiz } from "./assinatura-aba.js";
 import { abrirCanal } from "./canal.js";
 import { criarRegistro } from "./registro.js";
 import { criarBuscadorDeMidia } from "./midia.js";
+import { consumirAcao } from "./acao.js";
 import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
@@ -937,6 +938,10 @@ async function iniciar() {
     }
   });
 
+  // Trava de segurança: a janela de download cobre a tela inteira e nunca
+  // tem motivo para estar aberta antes de um download começar.
+  $("progresso").hidden = true;
+
   const pedido = aplicarPedido(params.get("pedido"));
   if (pedido) {
     atualizarNotaDeEscopo();
@@ -944,7 +949,13 @@ async function iniciar() {
   }
 
   // A aba abre já executando o que foi pedido, em vez de ser um trampolim.
-  const acao = params.get("acao");
+  //
+  // Mas a ação vale UMA vez. Deixá-la no endereço fazia todo recarregamento
+  // — e toda reabertura do Acervo — disparar de novo um download que
+  // ninguém pediu, com a janela modal por cima, prendendo a navegação.
+  const { acao, busca } = consumirAcao(location.search);
+  if (acao) history.replaceState(null, "", location.pathname + busca);
+
   if (acao === "indexar") indexar();
   if (acao === "baixar") indexar({ eDepoisBaixar: true });
   if (acao === "destaque" && pedido?.destaque) {
