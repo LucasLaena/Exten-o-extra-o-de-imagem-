@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "pk": "3300000000000000020",
+      "code": "RESTVID",
+      "media_type": 2,
+      "like_count": 12,
+      "play_count": 340,
+      "comment_count": 2,
+      "taken_at": 1690000000,
+      "caption": { "text": "rest" },
+      "image_versions2": {
+        "candidates": [{ "url": "https://cdn.test/rest-capa.jpg", "width": 1080, "height": 1080 }]
+      },
+      "video_versions": [
+        { "type": 102, "url": "https://cdn.test/rest.mp4", "width": 1080, "height": 1080 }
+      ]
+    }
+  ],
+  "more_available": true,
+  "next_max_id": "MAXID_XYZ",
+  "num_results": 1
+}

@@ -1,0 +1,46 @@
+{
+  "itemList": [
+    {
+      "id": "7300000000000000001",
+      "desc": "primeiro video",
+      "createTime": 1710253800,
+      "stats": { "diggCount": 12345, "playCount": 987654, "commentCount": 42, "shareCount": 7 },
+      "video": {
+        "duration": 31,
+        "width": 1080,
+        "height": 1920,
+        "cover": "https://cdn.tiktok.test/capa-1.jpg",
+        "playAddr": "https://cdn.tiktok.test/com-marca-1.mp4",
+        "downloadAddr": "https://cdn.tiktok.test/sem-marca-1.mp4"
+      }
+    },
+    {
+      "id": "7300000000000000002",
+      "desc": "só com playAddr",
+      "createTime": 1709000000,
+      "stats": { "diggCount": 5, "playCount": 60, "commentCount": 0, "shareCount": 0 },
+      "video": {
+        "duration": 10,
+        "width": 720,
+        "height": 1280,
+        "cover": "https://cdn.tiktok.test/capa-2.jpg",
+        "playAddr": "https://cdn.tiktok.test/com-marca-2.mp4"
+      }
+    },
+    {
+      "id": "7300000000000000003",
+      "desc": "slideshow de fotos",
+      "createTime": 1708000000,
+      "stats": { "diggCount": 900, "playCount": 4000, "commentCount": 3, "shareCount": 1 },
+      "video": { "cover": "https://cdn.tiktok.test/capa-3.jpg" },
+      "imagePost": {
+        "images": [
+          { "imageURL": { "urlList": ["https://cdn.tiktok.test/slide-1.jpg"] }, "imageWidth": 1080, "imageHeight": 1920 },
+          { "imageURL": { "urlList": ["https://cdn.tiktok.test/slide-2.jpg"] }, "imageWidth": 1080, "imageHeight": 1920 }
+        ]
+      }
+    }
+  ],
+  "hasMore": true,
+  "cursor": "1708000000000"
+}

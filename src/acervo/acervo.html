@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acervo</title>
+    <link rel="stylesheet" href="acervo.css" />
+  </head>
+  <body>
+    <header class="topo">
+      <div>
+        <h1>Acervo <span class="versao" id="versao"></span></h1>
+        <p class="perfil" id="perfil">nenhum perfil escolhido</p>
+      </div>
+      <p class="estado" id="estado">Carregando…</p>
+    </header>
+
+    <section class="alvo" aria-label="Perfil">
+      <label class="campo cresce">
+        <span>Perfil</span>
+        <input
+          type="text"
+          id="urlPerfil"
+          placeholder="https://www.instagram.com/perfil/  ou  @perfil"
+          spellcheck="false"
+          autocomplete="off"
+        />
+      </label>
+      <button id="indexar" type="button" class="primario">Indexar perfil</button>
+      <button id="cancelar" type="button" class="secundario" hidden>Cancelar</button>
+      <button id="verLog" type="button" class="secundario">Log</button>
+      <button id="diagnostico" type="button" class="secundario">Diagnóstico</button>
+    </section>
+
+    <section class="barra" aria-label="Filtros e ordenação">
+      <label class="campo">
+        <span>Mídia</span>
+        <select id="filtro">
+          <option value="ambos">Fotos e vídeos</option>
+          <option value="fotos">Só fotos</option>
+          <option value="videos">Só vídeos</option>
+        </select>
+      </label>
+
+      <label class="campo">
+        <span>Ordenar por</span>
+        <select id="ordenacao">
+          <option value="sequencia">Sequência do perfil</option>
+          <option value="curtidas">Mais curtidas</option>
+          <option value="views">Mais visualizações</option>
+          <option value="recentes">Mais recentes</option>
+          <option value="antigos">Mais antigas</option>
+        </select>
+      </label>
+
+      <label class="campo estreito">
+        <span>Da</span>
+        <input type="number" id="de" min="1" value="1" />
+      </label>
+
+      <label class="campo estreito">
+        <span>até</span>
+        <input type="number" id="ate" min="1" value="100" />
+      </label>
+
+      <label class="campo">
+        <span>Catalogar</span>
+        <select id="escopo">
+          <option value="faixa">Só até o fim da faixa</option>
+          <option value="tudo">Perfil inteiro</option>
+        </select>
+      </label>
+
+      <label class="marca">
+        <input type="checkbox" id="incluirCapaReel" />
+        <span>Incluir capa dos vídeos</span>
+      </label>
+
+
+      <label class="campo">
+        <span>Por linha</span>
+        <select id="porLinha">
+          <option value="3">3 grandes</option>
+          <option value="6">6</option>
+          <option value="10" selected>10</option>
+          <option value="16">16 miúdas</option>
+        </select>
+      </label>
+
+      <div class="acoes">
+        <button id="escolherPasta" type="button" class="secundario">Escolher pasta</button>
+        <button id="baixar" type="button" class="primario">Baixar</button>
+      </div>
+    </section>
+
+    <p class="nota" id="notaEscopo" hidden></p>
+    <p class="resumo" id="resumo" hidden></p>
+    <p class="recuo" id="recuo" hidden></p>
+
+    <section class="registro" id="registro" hidden>
+      <div class="registro-topo">
+        <h2>O que aconteceu</h2>
+        <button type="button" id="copiarRegistro" class="secundario">Copiar</button>
+      </div>
+      <ol id="registroLinhas"></ol>
+    </section>
+
+    <section class="vazio" id="vazio" hidden>
+      <h2 id="vazioTitulo"></h2>
+      <ol id="vazioPassos"></ol>
+      <p class="porque" id="vazioPorque"></p>
+    </section>
+
+    <main id="grade" class="grade" role="listbox" aria-label="Publicações"></main>
+
+    <aside class="painel" id="diagPainel" hidden>
+      <div class="painel-topo">
+        <h2>Diagnóstico</h2>
+        <button class="fechar-painel" id="fecharDiag" type="button" aria-label="Fechar">×</button>
+      </div>
+      <ol id="diagLista"></ol>
+    </aside>
+
+    <div class="cortina" id="progresso" hidden>
+      <section
+        class="baixando"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="progressoTitulo"
+      >
+        <header>
+          <h2 id="progressoTitulo">Baixando</h2>
+          <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Fechar">×</button>
+        </header>
+
+        <p class="contagem">
+          <strong id="progressoFeitos">0</strong><span id="progressoTotal"></span>
+        </p>
+
+        <div class="barra-progresso" role="progressbar" aria-labelledby="progressoTitulo"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressoBarra">
+          <span id="progressoPreenchido"></span>
+        </div>
+
+        <p class="agora" id="progressoTexto">Preparando…</p>
+
+        <ol id="partes" aria-label="Partes concluídas"></ol>
+
+        <footer>
+          <p class="rodape-nota">Fechar esta janela não cancela o download.</p>
+          <button id="pararDownload" type="button" class="perigo">Parar download</button>
+        </footer>
+      </section>
+    </div>
+
+    <script type="module" src="acervo.js"></script>
+  </body>
+</html>
