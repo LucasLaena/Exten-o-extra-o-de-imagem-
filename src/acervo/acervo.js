@@ -8,6 +8,7 @@ import { criarColetorDireto } from "./direto.js";
 import { criarAprendiz } from "./assinatura-aba.js";
 import { abrirCanal } from "./canal.js";
 import { criarRegistro } from "./registro.js";
+import { criarBuscadorDeMidia } from "./midia.js";
 import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
@@ -733,16 +734,16 @@ async function baixar() {
     ? ` de ${numero(totalDeArquivos)} arquivos`
     : " arquivos";
   $("progressoTexto").textContent = "Preparando…";
+  const parar = $("pararDownload");
+  parar.textContent = "Parar download";
+  parar.classList.add("perigo");
+  parar.classList.remove("secundario");
   marcarProgresso(0, totalDeArquivos);
 
   const baixador = criarBaixador({
     adaptador: alvo.adaptador,
     repo,
-    buscarMidia: async (url, sinal) => {
-      const resposta = await fetch(url, { signal: sinal });
-      if (!resposta.ok) throw new Error(`CDN respondeu ${resposta.status}`);
-      return resposta.blob();
-    },
+    buscarMidia: criarBuscadorDeMidia(),
     abrirDestino: destino.abrirDestino,
     escreverTexto: destino.escreverTexto,
     aoProgresso: (evento) => {
@@ -753,6 +754,12 @@ async function baixar() {
       } else {
         const li = document.createElement("li");
         li.textContent = `${evento.nome} — parte ${evento.n} de ${evento.de}`;
+        $("partes").append(li);
+      }
+      if (evento.falha) {
+        const li = document.createElement("li");
+        li.className = "falha";
+        li.textContent = `falhou: ${evento.falha}`;
         $("partes").append(li);
       }
     },
@@ -780,8 +787,11 @@ async function baixar() {
     cancelador = null;
     $("cancelar").hidden = true;
     // A janela fica: o resultado, com as partes e as falhas, e o que a
-    // pessoa precisa ler depois que tudo termina.
-    $("pararDownload").hidden = true;
+    // pessoa precisa ler depois que tudo termina. O botao vira saida.
+    const saida = $("pararDownload");
+    saida.textContent = "Fechar";
+    saida.classList.remove("perigo");
+    saida.classList.add("secundario");
     await redesenhar();
   }
 }
@@ -878,8 +888,25 @@ async function iniciar() {
   $("copiarRegistro").addEventListener("click", copiarRegistro);
   $("verLog").addEventListener("click", alternarLog);
   $("pararDownload").addEventListener("click", () => {
-    $("progressoTexto").textContent = "Parando…";
-    cancelador?.abort();
+    if (cancelador) {
+      $("progressoTexto").textContent = "Parando…";
+      cancelador.abort();
+      return;
+    }
+    $("progresso").hidden = true;
+  });
+
+  // Duas saidas a mais, porque a janela cobre tudo: Esc e clique no fundo.
+  // So valem quando nada esta rodando — fechar sem querer no meio de um
+  // download longo seria pior que a falta de saida.
+  $("progresso").addEventListener("click", (evento) => {
+    if (evento.target === $("progresso") && !cancelador) $("progresso").hidden = true;
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape") return;
+    if (!$("progresso").hidden && !cancelador) $("progresso").hidden = true;
+    if (!$("diagPainel").hidden) $("diagPainel").hidden = true;
   });
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);

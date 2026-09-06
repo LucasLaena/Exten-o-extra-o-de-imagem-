@@ -607,3 +607,7 @@ button:focus-visible {
   .acoes { margin-left: 0; width: 100%; }
   .painel { left: var(--gap); right: var(--gap); width: auto; }
 }
+
+.baixando ol li.falha {
+  color: var(--alerta);
+}
