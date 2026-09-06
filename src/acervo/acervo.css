@@ -420,3 +420,57 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+.registro {
+  margin: 0 var(--gap) var(--gap);
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  background: var(--fundo-caixa, #fff);
+}
+
+.registro-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--linha);
+}
+
+.registro-topo h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.registro ol {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+  max-height: 15rem;
+  overflow-y: auto;
+  /* Monoespacada porque o relato quase sempre chega como print: alinhamento
+     de hora e numero e o que torna a leitura possivel. */
+  font-family: var(--mono, ui-monospace, "Cascadia Code", Consolas, monospace);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.registro li {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.registro .hora {
+  color: var(--tinta-fraca, #6b7280);
+  flex: none;
+}
+
+.registro li.erro .texto {
+  color: var(--erro, #b42318);
+  font-weight: 600;
+}
+
+.registro li.fim .texto {
+  font-weight: 600;
+}

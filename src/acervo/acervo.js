@@ -7,6 +7,7 @@ import { criarColetor } from "./coletor.js";
 import { criarColetorDireto } from "./direto.js";
 import { criarAprendiz } from "./assinatura-aba.js";
 import { abrirCanal } from "./canal.js";
+import { criarRegistro } from "./registro.js";
 import { resumirCatalogo, textoDoResumo } from "../core/resumo.js";
 import { resolverAlvo } from "./alvo.js";
 import { destaques } from "../adapters/destaques.js";
@@ -37,6 +38,45 @@ let cancelador = null;
  * aparecia.
  */
 let falhaAtual = null;
+
+const registro = criarRegistro();
+
+/**
+ * Escreve o registro na tela.
+ *
+ * Nunca passa por redesenhar(): foi justamente o redesenho que vinha apagando
+ * o erro no instante em que ele aparecia.
+ */
+function desenharRegistro() {
+  const linhas = registro.todas();
+  $("registro").hidden = linhas.length === 0;
+
+  const lista = $("registroLinhas");
+  lista.textContent = "";
+  for (const linha of linhas) {
+    const item = document.createElement("li");
+    if (linha.tipo !== "passo") item.className = linha.tipo;
+
+    const hora = document.createElement("span");
+    hora.className = "hora";
+    hora.textContent = linha.hora;
+
+    const texto = document.createElement("span");
+    texto.className = "texto";
+    texto.textContent = linha.texto;
+
+    item.append(hora, texto);
+    lista.append(item);
+  }
+  lista.scrollTop = lista.scrollHeight;
+}
+
+const anotar = (texto, tipo = "passo") => {
+  registro.anotar(texto, tipo);
+  desenharRegistro();
+};
+const anotarErro = (texto) => anotar(texto, "erro");
+const anotarFim = (texto) => anotar(texto, "fim");
 let pastaDestino = null;
 
 // --- grade e estado da tela -------------------------------------------------
@@ -266,7 +306,13 @@ function relatarProgresso({ indexados, paginas, total, aviso, rolando, paradas, 
 }
 
 async function indexar({ eDepoisBaixar = false } = {}) {
-  if (!(await trocarAlvo($("urlPerfil").value, { redesenha: false }))) return;
+  registro.limpar();
+  anotar(`indexar: ${$("urlPerfil").value || "(campo vazio)"}`);
+
+  if (!(await trocarAlvo($("urlPerfil").value, { redesenha: false }))) {
+    anotarErro("endereço de perfil não reconhecido — a indexação nem começou");
+    return;
+  }
 
   const controle = new AbortController();
   cancelador = controle;
@@ -285,6 +331,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // o que foi pedido agora.
     limparRecuo();
     falhaAtual = null;
+    anotar("limpando o catálogo anterior");
     dizer("Limpando o catálogo anterior…");
     await repo.posts.limparTudo();
     await repo.perfis.salvar({
@@ -309,15 +356,23 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         // A página do perfil responde a qualquer um: é dela que saem o
         // identificador, o total declarado e a resposta sobre ser privado.
         dizer("Lendo o perfil…");
+        anotar("lendo a página do perfil");
         const perfil = await criarColetorDireto({ repo }).identificar(alvo.handle);
+        anotar(
+          `perfil id ${perfil.userId}` +
+          (perfil.total ? `, ${perfil.total} publicações declaradas` : ""),
+        );
         await repo.perfis.salvar({ key: alvo.profileKey, userId: perfil.userId });
 
         // A aba nasce escondida e fica parada. Ela não existe para rolar: é só
         // o endereço de rede de onde as consultas saem como sendo do próprio
         // site. Quem comanda é esta aba aqui, de fora.
+        anotar("abrindo aba em segundo plano");
         canal = await abrirCanal({ executor, urlDoPerfil: alvo.urlDoPerfil });
+        anotar(`aba ${canal.abaId} aberta e parada`);
 
         dizer("Aprendendo a consulta do perfil…");
+        anotar("procurando a consulta que a página faz (até 30s)");
         const { assinatura, pagina } = await criarAprendiz().aprender({
           canal,
           idDoDono: perfil.userId,
@@ -326,6 +381,10 @@ async function indexar({ eDepoisBaixar = false } = {}) {
           sinal: controle.signal,
         });
 
+        anotar(
+          `consulta aprendida: ${String(assinatura.url).replace(/^https?:\/\/[^/]+/, "")}` +
+          `, ${pagina.itens.length} na primeira página`,
+        );
         dizer("Buscando em segundo plano, sem rolagem…");
         r = await criarColetorDireto({
           repo,
@@ -347,9 +406,13 @@ async function indexar({ eDepoisBaixar = false } = {}) {
         // sobrescreveria a mensagem em menos de um segundo e o motivo se
         // perderia justamente quando mais importa.
         motivoDoRecuo = erro.message;
+        anotarErro(erro.message);
         avisarRecuo(erro.message);
       } finally {
-        await canal?.fechar();
+        if (canal) {
+          await canal.fechar();
+          anotar("aba de segundo plano fechada");
+        }
       }
     }
 
@@ -383,6 +446,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
           " Clique em Indexar perfil para continuar de onde parou.",
     );
   } catch (erro) {
+    anotarErro(erro.message);
     falhaAtual = {
       mensagem: erro.message,
       titulo: "A indexação parou",
