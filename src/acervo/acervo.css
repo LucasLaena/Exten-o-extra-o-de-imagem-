@@ -444,62 +444,47 @@ button:focus-visible {
 .passo.erro::before { content: "×"; color: var(--alerta); }
 .passo.erro strong { color: var(--alerta); }
 
-/* --- janela de download --------------------------------------------------- */
-
-.cortina {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--gap);
-  background: rgba(6, 8, 10, 0.72);
-  z-index: 40;
-}
-
-.baixando {
-  width: min(480px, 100%);
-  max-height: 82vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--painel);
-  border: 1px solid var(--linha-forte);
-  border-radius: 10px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
-}
-
-.baixando > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--linha);
-}
-
-.baixando h2 { margin: 0; font-size: 15px; font-weight: 600; }
+/* --- andamento do download ------------------------------------------------ */
 
 /*
- * O número grande é o que a pessoa olha de longe enquanto faz outra coisa.
- * Em latão porque é a informação viva da janela.
+ * Faixa no fluxo da página, nunca janela por cima.
+ *
+ * Isto já foi um modal com cortina, e foi um erro: janela que cobre a tela
+ * transforma qualquer engano em armadilha, e uma delas apareceu sem ninguém
+ * pedir. Uma faixa informa igual e não pode prender ninguém.
  */
+.andamento-download {
+  padding: 12px var(--gap);
+  background: var(--painel);
+  border-bottom: 1px solid var(--linha);
+  border-left: 3px solid var(--agua);
+}
+
+.andamento-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .contagem {
   margin: 0;
-  padding: 20px 18px 12px;
-  font-size: 14px;
+  flex: 1;
+  font-size: 13px;
   color: var(--fraco);
 }
 
 .contagem strong {
-  font-size: 34px;
+  font-size: 22px;
   font-weight: 600;
   color: var(--latao-forte);
-  margin-right: 4px;
+  margin-right: 5px;
 }
 
 .barra-progresso {
-  height: 5px;
-  margin: 0 18px;
+  height: 4px;
+  margin: 10px 0 8px;
   background: var(--campo);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -529,54 +514,27 @@ button:focus-visible {
 
 .agora {
   margin: 0;
-  padding: 12px 18px;
   font-family: var(--mono);
   font-size: 12px;
   color: var(--fraco);
-  /* Nome de arquivo longo não pode empurrar a janela. */
+  /* Nome de arquivo longo não pode empurrar a linha. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.baixando ol {
-  margin: 0;
-  padding: 0 18px 12px;
+.andamento-download ol {
+  margin: 8px 0 0;
+  padding: 0;
   list-style: none;
+  max-height: 7rem;
   overflow-y: auto;
   font-size: 12px;
   color: var(--apagado);
 }
 
-.baixando ol li { padding: 3px 0; }
-
-.baixando > footer {
-  padding: 14px 18px;
-  border-top: 1px solid var(--linha);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.rodape-nota {
-  margin: 0;
-  font-size: 12px;
-  color: var(--apagado);
-}
-
-/* O X e a saida mais obvia da janela: precisa ser visto sem procurar. */
-.baixando > header .fechar-painel {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio);
-  color: var(--texto);
-}
-
-.baixando > header .fechar-painel:hover {
-  background: var(--campo-alto);
-}
+.andamento-download ol li { padding: 2px 0; }
+.andamento-download ol li.falha { color: var(--alerta); }
 
 /* --- log ------------------------------------------------------------------ */
 
@@ -629,6 +587,3 @@ button:focus-visible {
   .painel { left: var(--gap); right: var(--gap); width: auto; }
 }
 
-.baixando ol li.falha {
-  color: var(--alerta);
-}

@@ -894,16 +894,9 @@ async function iniciar() {
     }, 3000);
   });
 
-  // Fechar a janela NAO cancela o download: sao coisas diferentes, e trata-las
-  // como uma so foi o que prendeu a tela. Quem quer parar aperta Parar; quem
-  // so quer a tela de volta fecha, e o andamento segue na linha de estado.
-  //
-  // Por isso as saidas sao incondicionais. Janela que cobre tudo e nao fecha e
-  // pior que qualquer clique errado.
-  $("progresso").addEventListener("click", (evento) => {
-    if (evento.target === $("progresso")) $("progresso").hidden = true;
-  });
-
+  // O andamento e uma faixa na pagina, nao uma janela: esconder e so tirar da
+  // vista, e o download segue. Nao ha mais cortina para clicar nem tela para
+  // destravar.
   document.addEventListener("keydown", (evento) => {
     if (evento.key !== "Escape") return;
     $("progresso").hidden = true;

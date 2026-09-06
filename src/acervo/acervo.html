@@ -121,37 +121,23 @@
       <ol id="diagLista"></ol>
     </aside>
 
-    <div class="cortina" id="progresso" hidden>
-      <section
-        class="baixando"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="progressoTitulo"
-      >
-        <header>
-          <h2 id="progressoTitulo">Baixando</h2>
-          <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Fechar">×</button>
-        </header>
-
+    <section class="andamento-download" id="progresso" hidden aria-label="Download">
+      <div class="andamento-topo">
         <p class="contagem">
           <strong id="progressoFeitos">0</strong><span id="progressoTotal"></span>
         </p>
+        <button id="pararDownload" type="button" class="perigo">Parar download</button>
+        <button class="fechar-painel" id="fecharProgresso" type="button" aria-label="Esconder">×</button>
+      </div>
 
-        <div class="barra-progresso" role="progressbar" aria-labelledby="progressoTitulo"
-             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressoBarra">
-          <span id="progressoPreenchido"></span>
-        </div>
+      <div class="barra-progresso" role="progressbar" aria-label="Download"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressoBarra">
+        <span id="progressoPreenchido"></span>
+      </div>
 
-        <p class="agora" id="progressoTexto">Preparando…</p>
-
-        <ol id="partes" aria-label="Partes concluídas"></ol>
-
-        <footer>
-          <p class="rodape-nota">Fechar esta janela não cancela o download.</p>
-          <button id="pararDownload" type="button" class="perigo">Parar download</button>
-        </footer>
-      </section>
-    </div>
+      <p class="agora" id="progressoTexto">Preparando…</p>
+      <ol id="partes" aria-label="Partes concluídas"></ol>
+    </section>
 
     <script type="module" src="acervo.js"></script>
   </body>

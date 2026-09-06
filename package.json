@@ -1,6 +1,6 @@
 {
   "name": "acervo",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "private": true,
   "type": "module",
   "description": "Extensao Chrome para catalogar e baixar publicacoes do Instagram e TikTok",
