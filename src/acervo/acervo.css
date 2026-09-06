@@ -53,6 +53,13 @@ body {
   font-family: var(--sans);
   font-size: 14px;
   line-height: 1.5;
+
+  /* A grade e virtualizada: ela mede o que cabe na tela para saber o que
+     desenhar. Isso exige que ELA role, e nao a pagina — daí a coluna de
+     altura fixa, com a grade ficando com o que sobra. */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Todo número desta tela é de leitura, não de prosa: alinhado e sem tremer. */
@@ -77,9 +84,7 @@ input[type="number"],
   padding: 14px var(--gap);
   background: var(--painel);
   border-bottom: 1px solid var(--linha);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  flex: none;
 }
 
 h1 {
@@ -265,6 +270,10 @@ button:focus-visible {
 /* --- a grade é a protagonista --------------------------------------------- */
 
 .grade {
+  flex: 1 1 auto;
+  /* min-height:0 e o que permite um filho flex encolher e criar rolagem
+     propria; sem ele o flex respeita o conteudo e a barra nunca aparece. */
+  min-height: 0;
   padding: var(--gap);
   overflow-y: auto;
 }
@@ -297,20 +306,34 @@ button:focus-visible {
   outline-offset: -2px;
 }
 
-/* Já baixado é estado, e estado se lê pela imagem, não por um enfeite novo. */
-.item.baixado img {
-  filter: grayscale(1);
-  opacity: 0.45;
-}
-
+/*
+ * Já baixado.
+ *
+ * Antes era a imagem inteira em cinza. Lida como foto quebrada, nao como
+ * estado — e num acervo de fotos, tirar a cor de metade da grade destroi
+ * justamente o que se veio olhar. Agora e uma marca de canto, e a imagem
+ * continua sendo imagem.
+ */
 .item.baixado::after {
   content: "✓";
   position: absolute;
-  inset: 0;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
-  font-size: 22px;
-  color: var(--agua);
+  border-radius: 50%;
+  background: var(--agua);
+  color: #06201f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* A etiqueta de catálogo cede o canto para a marca de baixado. */
+.item.baixado .posicao {
+  left: 26px;
+  border-radius: 0 0 3px 3px;
 }
 
 /*

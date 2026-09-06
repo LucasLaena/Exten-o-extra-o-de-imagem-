@@ -6,10 +6,12 @@
  *           renderizar: (item, el) => void, aoMudarSelecao?: Function,
  *           margem?: number }} opcoes
  */
-export const PROPORCAO_ITEM = 1.25;
-/** Espaço do rodapé de cada item: posição, métricas e seq. */
-export const ALTURA_RODAPE = 64;
-export const ESPACO_ENTRE = 14;
+/** Item quadrado, como manda o aspect-ratio do CSS. */
+export const PROPORCAO_ITEM = 1;
+/** Zero: as legendas ficam sobre a imagem, não abaixo dela. */
+export const ALTURA_RODAPE = 0;
+/** Tem de bater com o gap da .palco no CSS. */
+export const ESPACO_ENTRE = 4;
 
 export function criarGrade({
   container, colunas, renderizar, aoMudarSelecao, margem = 2, alturaLinha,
@@ -28,9 +30,15 @@ export function criarGrade({
    */
   const medirLinha = () => {
     if (alturaFixa) return alturaFixa;
-    const largura = container.clientWidth || 900;
+    // O palco é quem tem a largura útil: o container ainda tem o padding.
+    const largura = palco?.clientWidth || container.clientWidth || 900;
     const doItem = (largura - ESPACO_ENTRE * (colunasAtuais - 1)) / colunasAtuais;
-    return Math.max(80, Math.round(doItem * PROPORCAO_ITEM + ALTURA_RODAPE));
+    // O espaço entre linhas conta na altura da linha, senão cada linha desenha
+    // um pouco acima do lugar e o erro se acumula até a grade sumir.
+    return Math.max(
+      40,
+      Math.round(doItem * PROPORCAO_ITEM + ALTURA_RODAPE + ESPACO_ENTRE),
+    );
   };
   const selecionadas = new Set();
   let ultimaClicada = null;
@@ -128,6 +136,10 @@ export function criarGrade({
 
   const aoRolar = () => desenhar();
   container.addEventListener("scroll", aoRolar, { passive: true });
+
+  const observador =
+    typeof ResizeObserver === "function" ? new ResizeObserver(() => desenhar()) : null;
+  observador?.observe(container);
 
   const aoClicar = (evento) => {
     const el = evento.target.closest("[data-chave]");
