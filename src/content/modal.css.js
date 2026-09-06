@@ -1,9 +1,12 @@
 import { TOKENS, FILETE, MOVIMENTO_REDUZIDO } from "./tema.js";
 
 /**
- * O modal é um instrumento de arquivo, não um cartão de app. Superfície de
- * osso, filetes finos como estrutura entre grupos do formulário, e uma única
- * peça ousada: a régua da faixa.
+ * O modal é um instrumento de arquivo, não um cartão de app: bancada
+ * escura, filetes finos como estrutura entre grupos do formulário, e uma única
+ * peça ousada — a régua da faixa.
+ *
+ * Mesma paleta da aba do Acervo, de propósito. Catalogar aqui e ver o
+ * resultado lá não pode dar a impressão de trocar de programa no meio.
  */
 export function cssDoModal(plataforma) {
   return `
@@ -15,21 +18,45 @@ export function cssDoModal(plataforma) {
       z-index: 2147483001;
       display: grid;
       place-items: center;
-      background: rgba(28, 48, 56, .55);
+      background: rgba(6, 8, 10, .72);
       font: var(--acervo-texto);
       color: var(--acervo-tinta);
     }
 
     .painel {
+      position: relative;
       width: min(480px, calc(100vw - 32px));
       max-height: calc(100vh - 48px);
       overflow-y: auto;
-      background: var(--acervo-osso);
-      border: 1px solid var(--acervo-tinta);
+      background: var(--acervo-superficie);
+      border: 1px solid var(--acervo-linha-forte);
       border-top: 4px solid ${FILETE[plataforma] ?? FILETE.instagram};
       border-radius: 2px;
       box-shadow: 0 24px 48px rgba(28, 48, 56, .28);
       animation: entrar .14s ease-out;
+    }
+
+    .painel::before {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      z-index: -1;
+      border-radius: 6px;
+      background: conic-gradient(
+        from 210deg,
+        var(--acervo-latao),
+        ${FILETE[plataforma] ?? FILETE.instagram},
+        var(--acervo-agua),
+        var(--acervo-latao)
+      );
+      filter: blur(16px);
+      opacity: .3;
+      animation: respirar 5.5s ease-in-out infinite;
+    }
+
+    @keyframes respirar {
+      0%, 100% { opacity: .18; }
+      50% { opacity: .46; }
     }
 
     @keyframes entrar {
@@ -111,9 +138,9 @@ export function cssDoModal(plataforma) {
     }
 
     .opcoes label:has(input:checked) {
-      border-color: var(--acervo-verdete);
-      background: var(--acervo-verdete);
-      color: var(--acervo-osso);
+      border-color: var(--acervo-latao);
+      background: var(--acervo-latao);
+      color: var(--acervo-latao-escuro);
     }
 
     .opcoes label:focus-within {
@@ -151,8 +178,8 @@ export function cssDoModal(plataforma) {
     }
 
     .caminho:has(input:checked) {
-      border-color: var(--acervo-verdete);
-      box-shadow: inset 0 0 0 1px var(--acervo-verdete);
+      border-color: var(--acervo-latao);
+      box-shadow: inset 0 0 0 1px var(--acervo-latao);
     }
 
     .caminho input { grid-row: 1 / span 3; align-self: start; margin-top: 3px; }
@@ -172,7 +199,7 @@ export function cssDoModal(plataforma) {
       color: var(--acervo-alerta);
     }
 
-    .caminho-custo[data-bom="1"] { color: var(--acervo-verdete-forte); }
+    .caminho-custo[data-bom="1"] { color: var(--acervo-latao-forte); }
 
     /* --- a régua: a única peça ousada do painel --------------------------- */
 
@@ -204,8 +231,8 @@ export function cssDoModal(plataforma) {
       position: absolute;
       top: -1px;
       bottom: -1px;
-      background: var(--acervo-verdete);
-      border: 1px solid var(--acervo-verdete-forte);
+      background: var(--acervo-latao);
+      border: 1px solid var(--acervo-latao-forte);
       border-radius: 2px;
       transition: left .12s ease, width .12s ease;
     }
@@ -227,7 +254,7 @@ export function cssDoModal(plataforma) {
       color: var(--acervo-tinta);
     }
     .campos-faixa input:focus-visible {
-      outline: 2px solid var(--acervo-verdete);
+      outline: 2px solid var(--acervo-latao);
       outline-offset: 1px;
     }
 
@@ -253,7 +280,7 @@ export function cssDoModal(plataforma) {
   margin: 0 0 10px;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--acervo-tinta-fraca, #6b7280);
+  color: var(--acervo-grafite);
 }
 
 footer {
@@ -264,19 +291,19 @@ footer {
     .confirmar {
       width: 100%;
       padding: 13px;
-      border: 1px solid var(--acervo-verdete-forte);
+      border: 1px solid var(--acervo-latao-forte);
       border-radius: 2px;
-      background: var(--acervo-verdete);
-      color: var(--acervo-osso);
+      background: var(--acervo-latao);
+      color: var(--acervo-latao-escuro);
       font: inherit;
       font-weight: 650;
       cursor: pointer;
-      box-shadow: 0 2px 0 var(--acervo-verdete-forte);
+      box-shadow: 0 2px 0 var(--acervo-latao-forte);
       transition: transform .1s ease, box-shadow .1s ease;
     }
     .confirmar:active {
       transform: translateY(2px);
-      box-shadow: 0 0 0 var(--acervo-verdete-forte);
+      box-shadow: 0 0 0 var(--acervo-latao-forte);
     }
     .confirmar:focus-visible {
       outline: 2px solid var(--acervo-tinta);
@@ -295,7 +322,7 @@ footer {
       background: none;
       font: inherit;
       font-size: 13px;
-      color: var(--acervo-verdete-forte);
+      color: var(--acervo-latao-forte);
       text-decoration: underline;
       text-underline-offset: 3px;
       cursor: pointer;

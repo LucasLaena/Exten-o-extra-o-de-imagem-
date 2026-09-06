@@ -37,23 +37,23 @@ export function montarBotao({ adaptador, handle, aoClicar, rotulo = "Acervo" }) 
       align-items: baseline;
       gap: 10px;
       padding: 11px 18px 11px 14px;
-      border: 1px solid var(--acervo-verdete-forte);
+      border: 1px solid var(--acervo-latao-forte);
       border-left: 4px solid ${FILETE[adaptador.id] ?? FILETE.instagram};
       border-radius: 3px;
-      background: var(--acervo-verdete);
-      color: var(--acervo-osso);
+      background: var(--acervo-latao);
+      color: var(--acervo-latao-escuro);
       font: inherit;
       font-weight: 600;
       letter-spacing: .01em;
       cursor: pointer;
-      box-shadow: 0 2px 0 var(--acervo-verdete-forte);
+      box-shadow: 0 2px 0 var(--acervo-latao-forte);
       transition: transform .1s ease, box-shadow .1s ease;
     }
 
     /* O botão afunda quando pressionado: o movimento responde à ação, não decora. */
     button:active {
       transform: translateY(2px);
-      box-shadow: 0 0 0 var(--acervo-verdete-forte);
+      box-shadow: 0 0 0 var(--acervo-latao-forte);
     }
 
     button:focus-visible {
