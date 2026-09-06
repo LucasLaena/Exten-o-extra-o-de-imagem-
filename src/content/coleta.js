@@ -3,6 +3,7 @@ import { criarColetorDireto } from "../acervo/direto.js";
 import { extrairIdDoPerfil } from "../core/perfil-html.js";
 import { extrairTotal } from "../core/total-do-perfil.js";
 import { criarCanalDaPagina } from "./canal-da-pagina.js";
+import { extensaoViva, ErroDeExtensaoMorta } from "./vida.js";
 
 /**
  * Um catálogo que vive só enquanto a página estiver aberta.
@@ -49,7 +50,12 @@ export async function coletarNaPagina({
   documento = document,
   // Injetavel para o teste nao pagar as pausas de verdade entre paginas.
   esperar,
+  api = globalThis.chrome,
 }) {
+  // Falhar aqui, com instrucao, e melhor do que falhar tres passos adiante
+  // com "Failed to fetch", que nao diz o que fazer.
+  if (!extensaoViva(api)) throw new ErroDeExtensaoMorta();
+
   const html = documento?.documentElement?.innerHTML ?? "";
   const idDoDono = extrairIdDoPerfil(html, handle);
   const total = extrairTotal(html, documento?.body?.innerText ?? "");

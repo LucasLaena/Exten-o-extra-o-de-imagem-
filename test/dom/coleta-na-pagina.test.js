@@ -86,6 +86,7 @@ const coletar = (mundo, extra = {}) =>
     canal: mundo.canal,
     documento: documentoFalso(htmlDoPerfil),
     esperar: () => Promise.resolve(),
+    api: { runtime: { id: "acervo-de-mentira" } },
     ...extra,
   });
 
@@ -182,5 +183,19 @@ describe("coletar sem sair da página", () => {
 
     expect(etapas.some((e) => e.etapa === "lendo")).toBe(true);
     expect(etapas.some((e) => e.etapa === "aprendida")).toBe(true);
+  });
+});
+
+describe("extensao recarregada com a pagina aberta", () => {
+  it("para na hora, com instrucao, em vez de falhar tres passos adiante", async () => {
+    // Sem chrome.runtime as requisicoes morrem em "Failed to fetch", que
+    // parece problema de rede e manda procurar a causa no lugar errado.
+    const mundo = paginaFalsa({ paginas: {} });
+
+    const erro = await coletar(mundo, { api: { runtime: {} } }).catch((e) => e);
+
+    expect(erro.name).toBe("ErroDeExtensaoMorta");
+    expect(erro.message).toMatch(/F5|recarregue a página/i);
+    expect(mundo.canal.drenar).not.toHaveBeenCalled();
   });
 });

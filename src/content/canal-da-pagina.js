@@ -1,3 +1,5 @@
+import { extensaoViva, ErroDeExtensaoMorta } from "./vida.js";
+
 export const PEDIDO = "__acervo_pedir_capturas__";
 export const RESPOSTA = "__acervo_capturas__";
 export const ESPERA_RESPOSTA_MS = 1000;
@@ -14,9 +16,13 @@ export const ESPERA_RESPOSTA_MS = 1000;
  * O capturador vive no mundo MAIN e esta função no mundo isolado. O par de
  * eventos é a única forma de os dois se falarem.
  *
- * @param {{ janela?: Window, esperaMs?: number }} deps
+ * @param {{ janela?: Window, esperaMs?: number, api?: typeof chrome }} deps
  */
-export function criarCanalDaPagina({ janela = window, esperaMs = ESPERA_RESPOSTA_MS } = {}) {
+export function criarCanalDaPagina({
+  janela = window,
+  esperaMs = ESPERA_RESPOSTA_MS,
+  api = globalThis.chrome,
+} = {}) {
   /** Pede ao capturador o que ele viu, e desiste em vez de esperar para sempre. */
   function drenar() {
     return new Promise((resolver) => {
@@ -60,7 +66,15 @@ export function criarCanalDaPagina({ janela = window, esperaMs = ESPERA_RESPOSTA
 
   /** Do mesmo domínio: nada de CORS, nada de cabeçalho para disfarçar. */
   async function buscar(url, init) {
-    return janela.fetch(url, { ...(init ?? {}), credentials: "include" });
+    try {
+      return await janela.fetch(url, { ...(init ?? {}), credentials: "include" });
+    } catch (erro) {
+      // Content script órfão nao tem mais rede: a falha chega como "Failed to
+      // fetch" e parece problema de conexao. Conferir aqui e o que separa
+      // "recarregue a pagina" de uma cacada por causa inexistente.
+      if (!extensaoViva(api)) throw new ErroDeExtensaoMorta();
+      throw erro;
+    }
   }
 
   return {

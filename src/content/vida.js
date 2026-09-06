@@ -11,6 +11,25 @@
  * não faz nada.
  */
 
+/**
+ * A extensão foi recarregada e esta cópia ficou para trás.
+ *
+ * Vale ter nome próprio porque o sintoma engana: sem `chrome.runtime`, as
+ * requisições do content script morrem em "Failed to fetch", que parece
+ * problema de rede e manda procurar a causa no lugar errado. O carimbo de
+ * versão saindo como "?" é o mesmo sintoma, pela mesma causa.
+ */
+export class ErroDeExtensaoMorta extends Error {
+  constructor() {
+    super(
+      "A extensão foi recarregada e esta página ficou com a cópia antiga. " +
+      "Recarregue a página (F5) e tente de novo.",
+    );
+    this.name = "ErroDeExtensaoMorta";
+    this.recuperavel = false;
+  }
+}
+
 /** O `id` some quando o contexto é invalidado. É o sinal mais confiável. */
 export function extensaoViva(api) {
   try {

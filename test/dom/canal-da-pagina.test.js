@@ -84,3 +84,38 @@ describe("a página como canal", () => {
     await expect(canal.fechar()).resolves.toBeUndefined();
   });
 });
+
+describe("quando a extensao foi recarregada", () => {
+  const janelaQueFalha = (motivo) => ({
+    ...window,
+    fetch: vi.fn().mockRejectedValue(new TypeError(motivo)),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+
+  it("troca 'Failed to fetch' por instrucao quando a copia ficou orfa", async () => {
+    const canal = criarCanalDaPagina({
+      janela: janelaQueFalha("Failed to fetch"),
+      api: { runtime: {} },
+    });
+
+    const erro = await canal.buscar("https://www.instagram.com/graphql/query").catch((e) => e);
+
+    expect(erro.name).toBe("ErroDeExtensaoMorta");
+    expect(erro.message).toMatch(/F5|recarregue a página/i);
+  });
+
+  it("erro de rede de verdade sobe como veio, com a extensao viva", async () => {
+    // Confundir os dois foi o que custou a rodada: a mensagem tem de apontar
+    // para a causa certa.
+    const canal = criarCanalDaPagina({
+      janela: janelaQueFalha("NetworkError"),
+      api: { runtime: { id: "acervo-de-mentira" } },
+    });
+
+    const erro = await canal.buscar("https://www.instagram.com/graphql/query").catch((e) => e);
+
+    expect(erro.name).not.toBe("ErroDeExtensaoMorta");
+    expect(erro.message).toContain("NetworkError");
+  });
+});
