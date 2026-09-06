@@ -71,6 +71,28 @@ function desenharRegistro() {
   lista.scrollTop = lista.scrollHeight;
 }
 
+/**
+ * Copia o registro como texto.
+ *
+ * Serve para o relato chegar colavel em vez de print: numero de versao, hora
+ * e mensagem inteira, sem depender de a imagem estar legivel.
+ */
+async function copiarRegistro() {
+  const texto = registro.texto();
+  if (!texto) return;
+
+  const botao = $("copiarRegistro");
+  const rotulo = botao.textContent;
+  try {
+    await navigator.clipboard.writeText(texto);
+    botao.textContent = "Copiado";
+  } catch {
+    // Area de transferencia negada: selecionar o texto ainda funciona.
+    botao.textContent = "Selecione e copie";
+  }
+  setTimeout(() => { botao.textContent = rotulo; }, 2000);
+}
+
 const anotar = (texto, tipo = "passo") => {
   registro.anotar(texto, tipo);
   desenharRegistro();
@@ -763,6 +785,7 @@ async function iniciar() {
   addEventListener("resize", () => grade.definirColunas(grade.colunas()));
 
   $("indexar").addEventListener("click", indexar);
+  $("copiarRegistro").addEventListener("click", copiarRegistro);
   $("diagnostico").addEventListener("click", diagnosticar);
   $("baixar").addEventListener("click", baixar);
   $("cancelar").addEventListener("click", () => cancelador?.abort());
