@@ -28,6 +28,15 @@ let grade;
 let alvo = null;
 let posts = [];
 let cancelador = null;
+
+/**
+ * A ultima falha da indexacao, ou null.
+ *
+ * Guardada porque o redesenho roda DEPOIS do catch, no finally, e reescreve a
+ * tela inteira: sem lembrar a falha, ela era apagada no mesmo instante em que
+ * aparecia.
+ */
+let falhaAtual = null;
 let pastaDestino = null;
 
 // --- grade e estado da tela -------------------------------------------------
@@ -150,8 +159,15 @@ async function redesenhar() {
     temAssinatura: true,
     temAba: true,
   });
-  dizer(tela.resumo);
-  mostrarVazio(total === 0 ? tela.vazio : null);
+  // A falha manda enquanto nada entrou: dizer "Catalogo vazio" por cima de
+  // um erro esconde justamente a informacao que o usuario precisa.
+  if (falhaAtual && total === 0) {
+    dizer(falhaAtual.mensagem);
+    mostrarVazio(falhaAtual);
+  } else {
+    dizer(tela.resumo);
+    mostrarVazio(total === 0 ? tela.vazio : null);
+  }
   atualizarNotaDeEscopo();
 }
 
@@ -268,6 +284,7 @@ async function indexar({ eDepoisBaixar = false } = {}) {
     // coletas de filtros diferentes e a lista so crescia, sem nunca refletir
     // o que foi pedido agora.
     limparRecuo();
+    falhaAtual = null;
     dizer("Limpando o catálogo anterior…");
     await repo.posts.limparTudo();
     await repo.perfis.salvar({
@@ -366,12 +383,14 @@ async function indexar({ eDepoisBaixar = false } = {}) {
           " Clique em Indexar perfil para continuar de onde parou.",
     );
   } catch (erro) {
-    dizer(erro.message);
-    mostrarVazio({
+    falhaAtual = {
+      mensagem: erro.message,
       titulo: "A indexação parou",
       passos: [erro.message, "Clique em Diagnóstico para ver qual passo falhou."],
       porque: String(erro.causa?.message ?? ""),
-    });
+    };
+    dizer(erro.message);
+    mostrarVazio(falhaAtual);
   } finally {
     cancelador = null;
     $("cancelar").hidden = true;
