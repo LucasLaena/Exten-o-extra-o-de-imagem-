@@ -122,3 +122,63 @@ describe("o erro diz qual dos dois problemas aconteceu", () => {
     expect(erro.message).toMatch(/não consultou o feed/i);
   });
 });
+
+describe("telemetria nao passa por feed", () => {
+  // No Instagram, /graphql/query atende tudo. Uma mutacao de tempo de tela
+  // chega com doc_id igualzinho ao do feed, e aceitar pelo endereco fazia o
+  // aprendiz levar um contador de relogio achando que era a listagem.
+  const telemetria = () => ({
+    url: "https://www.instagram.com/graphql/query",
+    metodo: "POST",
+    headers: { "x-ig-app-id": "936619743392459" },
+    corpo:
+      "fb_api_req_friendly_name=PolarisScreenTimeLogger_syncMutation" +
+      "&doc_id=26576911295253037" +
+      "&variables=" +
+      encodeURIComponent(
+        JSON.stringify({
+          input: { actor_id: "17841478475263986", trigger_reason: "FOREGROUND" },
+        }),
+      ),
+    json: { data: { xfb_screen_time_sync: { success: true } } },
+  });
+
+  it("recusa a mutacao de tempo de tela, mesmo com doc_id valido", async () => {
+    const canal = canalFalso({ capturas: [[telemetria()]] });
+    const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
+    expect(erro).toBeTruthy();
+    expect(erro.message).toMatch(/não consultou o feed/i);
+  });
+
+  it("escolhe a consulta do feed no meio da telemetria", async () => {
+    const canal = canalFalso({
+      capturas: [[telemetria(), capturaBoa(), telemetria()]],
+    });
+    const r = await aprender(canal);
+    expect(r.pagina.itens.map((i) => i.id)).toEqual(["a"]);
+  });
+
+  it("recusa resposta vazia: sem publicacoes nao ha o que paginar", async () => {
+    const vazia = {
+      ...capturaBoa(),
+      json: {
+        data: {
+          xdt_api__v1__feed__user_timeline_graphql_connection: {
+            edges: [],
+            page_info: { has_next_page: false, end_cursor: null },
+          },
+        },
+      },
+    };
+    const canal = canalFalso({ capturas: [[vazia]] });
+    const erro = await aprender(canal, { tentativas: 2 }).catch((e) => e);
+    expect(erro.message).toMatch(/não consultou o feed/i);
+  });
+
+  it("resposta que nem parseia nao derruba a busca", async () => {
+    const quebrada = { ...capturaBoa(), json: { data: null } };
+    const canal = canalFalso({ capturas: [[quebrada], [capturaBoa()]] });
+    const r = await aprender(canal);
+    expect(r.assinatura).toBeTruthy();
+  });
+});

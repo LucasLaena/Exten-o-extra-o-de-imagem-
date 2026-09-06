@@ -36,17 +36,36 @@ export function criarAprendiz({
   tentativas = TENTATIVAS,
 } = {}) {
   /**
-   * Serve para paginar?
+   * Serve para paginar? Devolve a página lida, ou null.
+   *
+   * O endereço não prova nada: no Instagram, /graphql/query atende tudo —
+   * inclusive telemetria como PolarisScreenTimeLogger_syncMutation, que traz
+   * doc_id igualzinho ao do feed. Aceitar pelo endereço fazia o aprendiz levar
+   * uma mutação de relógio achando que era a listagem, e depois pedir a
+   * próxima página de um contador de tempo de tela.
+   *
+   * A prova é a forma da resposta: só serve o que traz publicações. Isso
+   * sobrevive a eles renomearem as consultas, o que acontece direto.
    *
    * O dono é conferido porque o buffer de capturas sobrevive à navegação: sem
    * esta guarda, o catálogo de um perfil recebia publicações de outro.
    */
-  function serve(captura, idDoDono, adaptador) {
-    if (!captura?.json || !pareceFeed(captura.url)) return false;
-    if (!idDoDono) return true;
+  function avaliar(captura, idDoDono, adaptador) {
+    if (!captura?.json || !pareceFeed(captura.url)) return null;
 
-    const dono = adaptador.idDoDono?.(captura.json);
-    return !dono || String(dono) === String(idDoDono);
+    let pagina = null;
+    try {
+      pagina = adaptador.parsear(captura.json);
+    } catch {
+      return null;
+    }
+    if (!pagina?.itens?.length) return null;
+
+    if (idDoDono) {
+      const dono = adaptador.idDoDono?.(captura.json);
+      if (dono && String(dono) !== String(idDoDono)) return null;
+    }
+    return pagina;
   }
 
   /**
@@ -64,7 +83,8 @@ export function criarAprendiz({
       if (sinal?.aborted) throw new ErroDeAssinatura("Cancelado.");
 
       for (const captura of await canal.drenar()) {
-        if (!serve(captura, idDoDono, adaptador)) continue;
+        const pagina = avaliar(captura, idDoDono, adaptador);
+        if (!pagina) continue;
         vistas++;
 
         const assinatura = montarAssinatura(captura);
@@ -73,7 +93,7 @@ export function criarAprendiz({
           continue;
         }
 
-        return { assinatura, pagina: adaptador.parsear(captura.json) };
+        return { assinatura, pagina };
       }
 
       // Algumas paginas so consultam o feed quando a grade e alcancada.
