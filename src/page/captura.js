@@ -166,5 +166,23 @@
     };
   }
 
+  // --- ponte para o content script -----------------------------------------
+  //
+  // O capturador vive no mundo MAIN, para enxergar o fetch da pagina. O
+  // content script vive no mundo ISOLADO e nao alcanca esta variavel. Um par
+  // de eventos resolve, e sem isso a coleta seria obrigada a acontecer noutra
+  // aba — que foi o caminho que nao deu certo.
+
+  window.addEventListener("__acervo_pedir_capturas__", function (evento) {
+    var id = evento && evento.detail ? evento.detail.id : null;
+    var fila = window.__acervo_capturas__ || [];
+    window.__acervo_capturas__ = [];
+    window.dispatchEvent(
+      new CustomEvent("__acervo_capturas__", {
+        detail: { id: id, capturas: fila },
+      }),
+    );
+  });
+
   window.__acervo_captura__ = { instalado: true };
 })();
